@@ -40,6 +40,7 @@
 #include "config.h"
 #include "ff.h"
 #include "buzzer.h"
+#include "soundplay.h"
 //#include "debug.h"
 #include "planner.h"
 #include "stepper.h"
@@ -328,6 +329,27 @@ void sd_list_dir (void)
 
 unsigned sd_open(FIL *pFile, char *path, uint8_t flags)
 {
+  char *reason[] = {
+	" (0) Succeeded ",
+	" (1) A hard error occured in the low level disk I/O layer ",
+	" (2) Assertion failed ",
+	" (3) The physical drive cannot work ",
+	" (4) Could not find the file ",
+	" (5) Could not find the path ",
+	" (6) The path name format is invalid ",
+	" (7) Acces denied due to prohibited access or directory full ",
+	" (8) Acces denied due to prohibited access ",
+	" (9) The file/directory object is invalid ",
+	" (10) The physical drive is write protected ",
+	" (11) The logical drive number is invalid ",
+	" (12) The volume has no work area ",
+	" (13) There is no valid FAT volume on the physical drive ",
+	" (14) The f_mkfs() aborted due to any parameter error ",
+	" (15) Could not get a grant to access the volume within defined period ",
+	" (16) The operation is rejected according to the file shareing policy ",
+	" (17) LFN working buffer could not be allocated ",
+	" (18) Number of open files > _FS_SHARE " };
+
   FRESULT res;
 
   res = f_open (pFile, path, flags);
@@ -339,7 +361,7 @@ unsigned sd_open(FIL *pFile, char *path, uint8_t flags)
   else
   {
     //debug
-    sersendf ("sd_open:%d", res);
+    sersendf (" failed: reason: %d %s\r\n", res, reason[res]);
     return 0;
   }
 }
@@ -398,7 +420,7 @@ eParseResult process_gcode_command()
   double backup_f;
   uint8_t axisSelected = 0;
   eParseResult result = PR_OK;
-  bool reply_sent = false;
+  bool reply_sent = false; // 'ok' already sent?
 
   tTarget next_targetd = startpoint;
 
@@ -594,9 +616,9 @@ eParseResult process_gcode_command()
 
       // unknown gcode: spit an error
       default:
-      serial_writestr("E: Bad G-code ");
+      sersendf("E: Bad G-code ");
       serwrite_uint8(next_target.G);
-      serial_writestr("\r\n");
+      sersendf("\r\n");	  
     }
   }
   else if (next_target.seen_M)
@@ -605,10 +627,17 @@ eParseResult process_gcode_command()
     {
       // SD File functions
       case 20: // M20 - list SD Card files
-      serial_writestr("Begin file list\r\n");
+	  
+	  if (!sd_active)
+	  {
+        sd_initialise();
+      }
+	  
+      sersendf("Begin file list\r\n");
       // list files in root folder
-      sd_list_dir();
-      serial_writestr("End file list\r\n");
+      // RR - disabled - sd_list_dir();
+      sersendf("End file list\r\n");
+			
       break;
 
       case 21: // M21 - init SD card
@@ -643,7 +672,7 @@ eParseResult process_gcode_command()
         else
         {
           sersendf("file.open failed\r\n");
-        }
+        }		
       }
       break;
 
@@ -677,7 +706,7 @@ eParseResult process_gcode_command()
       else
       {
         serial_writestr("Not SD printing\r\n");
-      }
+      }      
       break;
 
       case 28: //M28 <filename> - Start SD write
@@ -699,7 +728,7 @@ eParseResult process_gcode_command()
           sd_writing_file = true;
           sersendf("Writing to file: %s\r\n", next_target.filename);
         }
-      }
+      }	  
       break;
 
       case 29: //M29 - Stop SD write
@@ -753,7 +782,11 @@ eParseResult process_gcode_command()
 
       // M106- fan on
       case 106:
-      extruder_fan_on();
+	  if (next_target.S == 0) {
+	    extruder_fan_off();
+	  } else {
+        extruder_fan_on();
+      }
       break;
 
       // M107- fan off
@@ -822,7 +855,7 @@ eParseResult process_gcode_command()
 
       // M115- report firmware version
       case 115:
-      sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:http%%3A//github.com/bitboxelectronics/R2C2 PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel\r\n");
+		sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:%s PROTOCOL_VERSION:1.0.3-1 MACHINE_TYPE:Mendel\r\n", "https%3A//github.com/racribeiro/R2C2_Firmware");
       break;
 
       // M116 - Wait for all temperatures and other slowly-changing variables to arrive at their set values.
@@ -880,7 +913,7 @@ eParseResult process_gcode_command()
 
       /* M140 - Bed Temperature (Fast) */
       case 140:
-      temp_set(next_target.S, HEATED_BED_0);
+        temp_set(next_target.S, HEATED_BED_0);
       break;
 
       /* M141 - Chamber Temperature (Fast) */
@@ -1046,6 +1079,28 @@ eParseResult process_gcode_command()
       }
       break;
 
+      // Plays Jingle Bell from Static Library
+      case 301:
+      {
+        play_jingle_bell();
+      }
+      break;
+
+      // Plays Music from command line:
+      // Usage:
+      //   M302 "music" P"tempo"
+      // Example:
+      //   M302 D4b3a3g3 P600
+      //
+      case 302:
+      {
+        if (next_target.seen_P) {
+          set_whole_note_time(next_target.P);
+        }
+        play_music_string(next_target.filename);    
+      }
+      break;
+	  
       // M500 - set/get adc value for temperature
       // S: temperature (degrees C, 0-300)
       // P: ADC val

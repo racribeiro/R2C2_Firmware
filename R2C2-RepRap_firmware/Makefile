@@ -171,6 +171,8 @@ SRC = \
 	$(APPLIBDIR)/CMSISv1p30_LPC17xx/src/system_LPC17xx.c \
 	$(wildcard $(APPLIBDIR)/NXP/Drivers/source/lpc17xx_*.c) \
 	$(APPLIBDIR)/FatFs/src/ff.c \
+	$(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
+	$(APPLIBDIR)/FatFs/src/option/syscall.c \
 	$(APPLIBDIR)/FatFs/src/diskio.c \
 	$(APPLIBDIR)/FatFs/src/fattime.c \
 	$(APPLIBDIR)/R2C2/ios.c \
@@ -184,6 +186,7 @@ SRC = \
 	$(APPLIBDIR)/R2C2/spi.c \
 	$(APPLIBDIR)/R2C2/sdcard.c \
 	$(APPLIBDIR)/R2C2/buzzer.c \
+	$(APPLIBDIR)/R2C2/soundplay.c \
 	$(APPLIBDIR)/R2C2/uart.c \
 	$(APPSRC) \
 	main.c
