@@ -23,6 +23,7 @@ int app_main (void)
  	buzzer_play(1500, 100); /* low beep */
 	buzzer_wait();
   	buzzer_play(2500, 200); /* high beep */
+	buzzer_wait();	
 
   	pin_mode(1, (1 << 20), OUTPUT);
 

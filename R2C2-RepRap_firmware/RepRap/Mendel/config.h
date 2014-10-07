@@ -1,4 +1,5 @@
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -31,7 +32,6 @@
 #define CONFIG_H
 
 #include "stdint.h"
-
 
 #define MM_REPRAP_MENDEL  0
 #define MM_RAPMAN         1
@@ -102,6 +102,16 @@ struct configuration
   // options
   int32_t wait_on_temp;
   int32_t enable_extruder_1;
+  
+  // PID Extruder
+  double p_factor_extruder_1;
+  double i_factor_extruder_1;
+  double d_factor_extruder_1;
+  
+  // HEATED BED Extruder
+  double p_factor_heated_bed_0;
+  double i_factor_heated_bed_0;
+  double d_factor_heated_bed_0;
 };
 
 extern struct configuration config;

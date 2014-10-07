@@ -1,4 +1,5 @@
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -124,6 +125,14 @@ tConfigItem config_lookup [] =
         { "wait_on_temp", &config.wait_on_temp, TYPE_INT, {.val_i=0}},
 
         { "enable_extruder_1", &config.enable_extruder_1, TYPE_INT, {.val_i=1}},
+			
+		{ "p_factor_extruder_1", &config.p_factor_extruder_1, TYPE_DOUBLE, {.val_d=4.3}},		
+		{ "i_factor_extruder_1", &config.i_factor_extruder_1, TYPE_DOUBLE, {.val_d=0.2}},
+		{ "d_factor_extruder_1", &config.d_factor_extruder_1, TYPE_DOUBLE, {.val_d=0.1}},
+		
+		{ "p_factor_heated_bed_0", &config.p_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=4.3}},
+		{ "i_factor_heated_bed_0", &config.i_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.2}},
+		{ "d_factor_heated_bed_0", &config.d_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.1}},
     };
 
 #define NUM_TOKENS (sizeof(config_lookup)/sizeof(tConfigItem))
@@ -473,12 +482,11 @@ void write_config (void)
   /*
    * Read/Write/Backup Loop Start
    * */
-  bool    found;
+  bool    found = 0;
 
   pLine = f_gets(line, sizeof(line), &file_in); /* read one line */
 
   strcpy(bLine, pLine);
-
 
   while (pLine)
     {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -124,6 +125,11 @@ void buzzer_play (uint16_t frequency, uint16_t duration)
   buzzer_pwm_set_frequency(frequency);
   buzzer_pwm_start();
   
+  StartSlowTimer (&buzzerTimer, duration, buzzerTimerCallback); 
+}
+
+void buzzer_pause (uint16_t duration)
+{
   StartSlowTimer (&buzzerTimer, duration, buzzerTimerCallback); 
 }
 

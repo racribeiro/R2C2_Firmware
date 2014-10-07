@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -29,13 +30,9 @@
 */
 
 #include "temp.h"
-#include "machine.h"
-#include "pinout.h"
-#include "sersendf.h"
-#include "stepper.h"
 
 /* {ADC value Extruder0, ADC value HeatedBed0, temperature} */
-uint16_t temptable[NUMTEMPS][3] = {
+int16_t temptable[NUMTEMPS][3] = {
   {860, 60, 300},
   {1849, 95, 248},
   {2208, 119, 226},
@@ -52,38 +49,135 @@ uint16_t temptable[NUMTEMPS][3] = {
   {4080, 4085, 0}
 };
 
-static uint16_t current_temp [NUMBER_OF_SENSORS] = {0};
-static uint16_t target_temp  [NUMBER_OF_SENSORS] = {0};
+static struct PID pid[NUMBER_OF_SENSORS];
+static int16_t  current_temp [NUMBER_OF_SENSORS] = {0};
+static int16_t  target_temp  [NUMBER_OF_SENSORS] = {0};
+static double  output_temp  [NUMBER_OF_SENSORS] = {0};
 static uint32_t adc_filtered [NUMBER_OF_SENSORS] = {4095, 4095}; // variable must have the higher value of ADC for filter start at the lowest temperature
 
 #ifndef	ABSDELTA
 #define	ABSDELTA(a, b)	(((a) >= (b))?((a) - (b)):((b) - (a)))
 #endif
 
-static uint16_t read_temp(uint8_t sensor_number);
+static int16_t read_temp(uint8_t sensor_number);
 
-void temp_set(uint16_t t, uint8_t sensor_number)
+static uint8_t last_extruder_state[NUMBER_OF_SENSORS];
+static uint8_t temp_pattern_pos[NUMBER_OF_SENSORS];
+static bool temp_pattern[NUMBER_OF_SENSORS][TEMP_ELEMENTS];
+
+static char debug_str[NUMBER_OF_SENSORS][1024];
+
+int get_temp_pattern_pos(uint8_t sensor_number)
+{
+  return temp_pattern_pos[sensor_number];
+}
+
+char* temp_debug(uint8_t sensor_number)
+{
+  int i;
+  
+  for(i = 0; i < TEMP_ELEMENTS; i++) {
+    if (temp_pattern[sensor_number][i] == 0)
+	  debug_str[sensor_number][i] = '0';
+	else
+	  debug_str[sensor_number][i] = '1';
+  }
+
+  if (temp_pattern[sensor_number][temp_pattern_pos[sensor_number]] == 0)
+    debug_str[sensor_number][temp_pattern_pos[sensor_number]] = '-';
+  else
+    debug_str[sensor_number][temp_pattern_pos[sensor_number]] = '+';
+  debug_str[sensor_number][TEMP_ELEMENTS] = '\0';
+  
+  return debug_str[sensor_number];
+}
+
+void extruderDriverCallback()
+{
+  uint8_t sensor_number = 0;
+  for(sensor_number = 0; sensor_number < NUMBER_OF_SENSORS; sensor_number++) {
+    temp_pattern_pos[sensor_number]++;
+    if (temp_pattern_pos[sensor_number] > TEMP_ELEMENTS)
+      temp_pattern_pos[sensor_number] = 0;
+	
+    if (temp_pattern[sensor_number][temp_pattern_pos[sensor_number]] != last_extruder_state[sensor_number]) {
+      last_extruder_state[sensor_number] = !last_extruder_state[sensor_number];
+	  if (last_extruder_state[sensor_number]) {
+	    if (sensor_number == EXTRUDER_0)
+          extruder_heater_on();
+		if (sensor_number == HEATED_BED_0)
+          heated_bed_on();
+      } else {
+        if (sensor_number == EXTRUDER_0)
+          extruder_heater_off();
+		if (sensor_number == HEATED_BED_0)
+          heated_bed_off();
+      }
+	}
+  }
+}
+
+void temp_reset(int sensor_id)
+{
+  set_heater_pattern(sensor_id, 0);
+}
+
+void temp_init_sensor(uint8_t sensor_id)
+{  
+   last_extruder_state[sensor_id] = 0;
+   last_extruder_state[sensor_id] = LOW;
+   set_heater_pattern(sensor_id, 0);
+   
+   if (sensor_id == EXTRUDER_0) {   
+     PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
+                              config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT);  	 
+   }
+   
+   if (sensor_id == HEATED_BED_0) {   
+     PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
+                              config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT);  
+   }
+   
+   PID_SetOutputLimits(&pid[sensor_id], 0, 100);
+   PID_SetMode(&pid[sensor_id], AUTOMATIC);
+}
+
+double temp_get_output_temp(uint8_t sensor_id)
+{
+  return output_temp[sensor_id];
+}
+
+void temp_init()
+{
+  int i;
+  for(i = 0; i < NUMBER_OF_SENSORS; i++) {
+    temp_init_sensor(i);
+  }
+}
+
+void temp_set(uint8_t sensor_number,int16_t t)
 {
   if (t)
   {
-    steptimeout = 0;
-//?    power_on();
+    steptimeout = 0;  // Initiate timer
+//?    power_on(); // Turn on ATX, not needed on R2C2
   }
 
-  target_temp[sensor_number] = t;
+  target_temp[sensor_number] = t;  
+
 }
 
-uint16_t temp_get(uint8_t sensor_number)
+int16_t temp_get(uint8_t sensor_number)
 {
   return current_temp[sensor_number];
 }
 
-uint16_t temp_get_target(uint8_t sensor_number)
+int16_t temp_get_target(uint8_t sensor_number)
 {
   return target_temp[sensor_number];
 }
 
-uint8_t	temp_achieved(uint8_t sensor_number)
+int8_t	temp_achieved(uint8_t sensor_number)
 {
   if (current_temp[sensor_number] >= (target_temp[sensor_number] - 2))
     return 255;
@@ -91,7 +185,7 @@ uint8_t	temp_achieved(uint8_t sensor_number)
   return 0;
 }
 
-uint8_t temps_achieved (void)
+int8_t temps_achieved (void)
 {
   if ((current_temp[EXTRUDER_0] >= (target_temp[EXTRUDER_0] - 2)) && (current_temp[HEATED_BED_0] >= (target_temp[HEATED_BED_0] - 2)))
     return 255;
@@ -104,14 +198,81 @@ void temp_print()
   sersendf("ok T:%u.0 B:%u.0\r\n", current_temp[EXTRUDER_0], current_temp[HEATED_BED_0]); /* for RepRap software */
 }
 
-void temp_tick(void)
+void set_heater_pattern(uint8_t sensor_number, float power)
 {
-  /* Read and average temperatures */
-  current_temp[EXTRUDER_0] = read_temp(EXTRUDER_0);
-  current_temp[HEATED_BED_0] = read_temp(HEATED_BED_0);
+  int i;
+  
+  double level, step, position;
 
-  /* Manage heater using simple ON/OFF logic, no PID */
-  if (current_temp[EXTRUDER_0] < target_temp[EXTRUDER_0])
+  output_temp[sensor_number] = power;  
+  
+  level = power * TEMP_ELEMENTS / 100;
+  
+  step = TEMP_ELEMENTS / level;
+  
+  for(i = 0; i < TEMP_ELEMENTS; i++) {    
+	temp_pattern[sensor_number][i] = 0;
+  }
+  
+  if (power > 0) {
+    position = 0;
+    while(position < TEMP_ELEMENTS) {
+  	  temp_pattern[sensor_number][(int)position] = 1;
+	  position += step;
+    }
+  }
+}
+
+double get_pid_val(uint8_t sensor_number)
+{
+  return *pid[sensor_number].myOutput;
+}
+
+void temp_tick(tTimer *pTimer)
+{
+  bool result = 0;
+  
+  //sersendf("- temp_tick\r\n");
+  
+  /* Read and average temperatures */
+  current_temp[EXTRUDER_0] = read_temp(EXTRUDER_0);  
+
+  if (target_temp[EXTRUDER_0] == 0) {
+    set_heater_pattern(EXTRUDER_0,0);
+  } else {
+    if (current_temp[EXTRUDER_0] > 220) { // security above limit
+      set_heater_pattern(EXTRUDER_0,0);
+    } else {
+      result = PID_Compute(&pid[EXTRUDER_0]);	  
+	  if (result) {
+	    // sersendf("- E + %g\r\n", *pid[EXTRUDER_0].myOutput);
+	    set_heater_pattern(EXTRUDER_0,*pid[EXTRUDER_0].myOutput);
+      }
+    }
+  }
+  
+  current_temp[HEATED_BED_0] = read_temp(HEATED_BED_0);
+  
+  if (target_temp[HEATED_BED_0] == 0) {
+    set_heater_pattern(HEATED_BED_0,0);
+  } else {
+    if (current_temp[HEATED_BED_0] > 80) { // security above limit
+      set_heater_pattern(HEATED_BED_0,0);	  
+    } else {
+	
+      result = PID_Compute(&pid[HEATED_BED_0]);	  
+	  if (result) {
+	    // sersendf("- H + %g\r\n", *pid[HEATED_BED_0].myOutput);
+	    set_heater_pattern(HEATED_BED_0,*pid[HEATED_BED_0].myOutput);
+      }
+    }
+  }
+  
+  /* Manage heater using simple ON/OFF logic, no PID */  
+  
+  //if (current_temp[EXTRUDER_0] < target_temp[EXTRUDER_0])
+  /*
+  if (temp_turn_on(EXTRUDER_0))
   {
     extruder_heater_on();
   }
@@ -119,9 +280,14 @@ void temp_tick(void)
   {
     extruder_heater_off();
   }
+  */
 
+  
   /* Manage heater using simple ON/OFF logic, no PID */
+  
+  /*
   if (current_temp[HEATED_BED_0] < target_temp[HEATED_BED_0])
+  //if (temp_turn_on(HEATED_BED_0))
   {
     heated_bed_on();
   }
@@ -129,10 +295,11 @@ void temp_tick(void)
   {
     heated_bed_off();
   }
+  */
 }
 
 /* Read and average the ADC input signal */
-static uint16_t read_temp(uint8_t sensor_number)
+static int16_t read_temp(uint8_t sensor_number)
 {
   int32_t raw = 4095; // initialize raw with value equal to lowest temperature.
   static int32_t raw_correct = 4095;
@@ -194,7 +361,7 @@ static uint16_t read_temp(uint8_t sensor_number)
   return celsius;
 }
 
-bool temp_set_table_entry (uint8_t sensor_number, uint16_t temp, uint16_t adc_val)
+bool temp_set_table_entry (uint8_t sensor_number, int16_t temp, int16_t adc_val)
 {
   if (sensor_number < NUMBER_OF_SENSORS)
   {
@@ -212,9 +379,9 @@ bool temp_set_table_entry (uint8_t sensor_number, uint16_t temp, uint16_t adc_va
     return false;
 }
 
-uint16_t temp_get_table_entry (uint8_t sensor_number, uint16_t temp)
+int16_t temp_get_table_entry (uint8_t sensor_number, int16_t temp)
 {
-  uint16_t result = 0xffff;
+  int16_t result = 0xffff;
   
   if (sensor_number < NUMBER_OF_SENSORS)
   {

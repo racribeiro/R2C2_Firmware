@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -49,6 +50,7 @@
 
 
 tTimer temperatureTimer;
+tTimer extruderDriver;
 
 tLineBuffer serial_line_buf;
 tLineBuffer sd_line_buf;
@@ -121,7 +123,7 @@ void io_init(void)
 void temperatureTimerCallback (tTimer *pTimer)
 {
   /* Manage the temperatures */
-  temp_tick();
+  temp_tick(pTimer);
 }
 
 void check_boot_request (void)
@@ -143,34 +145,52 @@ void init(void)
   gcode_parse_init();
 
   // set up default feedrate
-//TODO  current_position.F = startpoint.F = next_target.target.F =       config.search_feedrate_z;
-
-  AddSlowTimer (&temperatureTimer);
-  StartSlowTimer (&temperatureTimer, 10, temperatureTimerCallback);
-  temperatureTimer.AutoReload = 1;
+  //TODO  current_position.F = startpoint.F = next_target.target.F =       config.search_feedrate_z;
 
   // say hi to host
   serial_writestr("Start\r\nOK\r\n");
 }
 
+void init_timers()
+{
+  AddSlowTimer (&temperatureTimer);
+  StartSlowTimer (&temperatureTimer, 10, temperatureTimerCallback);
+  temperatureTimer.AutoReload = 1;
+
+  AddSlowTimer (&extruderDriver);
+  StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
+  extruderDriver.AutoReload = 1;
+}
+
 int app_main (void)
 {
+  
   long timer1 = 0;
+  long now = 0;
+  
   eParseResult parse_result;
 
   buzzer_init();
   buzzer_play(1500, 100); /* low beep */
-	buzzer_wait();
+  buzzer_wait();
   buzzer_play(2500, 200); /* high beep */
-
+  
   init();
 
+  // init timers
+  init_timers();
+  
   read_config();
 
   // grbl init
   plan_init();      
   st_init();    
-  
+
+  // temperature init
+  temp_init();
+    
+  	
+	
   // main loop
   for (;;)
   {
@@ -216,6 +236,8 @@ int app_main (void)
        * for stepper motors.
        */
   
+      parse_result = PR_UNKNOWN;
+  
       // give priority to user commands
       if (serial_line_buf.seen_lf)
       {
@@ -230,24 +252,36 @@ int app_main (void)
         sd_line_buf.seen_lf = 0;
       }
 
+      if (parse_result != PR_OK) {
+	    switch (parse_result) {
+		  case PR_UNKNOWN:
+	        //serial_writestr("- Unknown\r\n");
+		    break;
+		  case PR_RESEND:
+	        serial_writestr("- Resend\r\n");
+		    break;
+		  case PR_ERROR:
+		    serial_writestr("- Error!\r\n");
+			break;
+          case PR_BUSY:
+		    serial_writestr("- Busy!\r\n");
+		    break;
+		  default:
+		    break;
+		}
+	  }	  
     }
 
-    /* Do every 100ms */
-    #define DELAY1 100
-    if (timer1 < millis())
+    /* Do every 1000ms */
+	
+    #define DELAY1 1000
+	now = millis();
+    if (timer1 < now)
     {
-      timer1 = millis() + DELAY1;
-
-      /* If there are no activity during 30 seconds, power off the machine */
-      if (steptimeout > (30 * 1000/DELAY1))
-      {
-        power_off();
-      }
-      else
-      {
-        steptimeout++;
-      }
+      timer1 = now + DELAY1;
+      sersendf("MTEMP:%u %u %u %u\r\n", now, temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));	  
     }
+	
 
 #ifdef USE_BOOT_BUTTON
     // OPTION: enter bootloader on "Boot" button

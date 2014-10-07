@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -63,7 +64,7 @@ typedef struct {
         int64_t                                         X;
         int64_t                                         Y;
         int64_t                                         Z;
-//        int64_t                                         E;
+//      int64_t                                         E;
         double E;
         uint64_t                                        F;
 } TARGET;
@@ -104,11 +105,11 @@ typedef struct {
 	uint8_t						checksum_calculated;
 
   // for SD functions
-	uint8_t						chpos;
-	char              filename [120];
+	uint16_t						chpos;
+	char                        filename [256];
 } GCODE_COMMAND;
 
-#define MAX_LINE 120
+#define MAX_LINE 256
 typedef struct
 {
   char    data [MAX_LINE];
@@ -120,7 +121,8 @@ typedef enum {
   PR_OK,
   PR_RESEND,
   PR_ERROR,
-  PR_BUSY
+  PR_BUSY,
+  PR_UNKNOWN,
   } eParseResult;
 
   

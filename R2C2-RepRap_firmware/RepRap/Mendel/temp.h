@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -31,39 +32,58 @@
 #ifndef	_TEMP_H
 #define	_TEMP_H
 
-#define NUMBER_OF_SENSORS               2
-#define EXTRUDER_0                      0
-#define HEATED_BED_0                    1
-
 #include <stdint.h>
 #include <stdbool.h>
 #include "adc.h"
+#include "machine.h"
+#include "config.h"
+#include "pinout.h"
+#include "sersendf.h"
+#include "stepper.h"
+#include "timer.h"
+#include "pid2.h"
+
+#define NUMBER_OF_SENSORS               2
+#define EXTRUDER_0                      0
+#define HEATED_BED_0                    1
+#define TEMP_ELEMENTS 100
+
+// extruder Driver Callback function
+void extruderDriverCallback();
+int get_current_extruder_1_pos();
+double get_pid_val(uint8_t sensor_number);
+void temp_init();
+double temp_get_output_temp(uint8_t sensor_id);
+
+void set_heater_pattern(uint8_t sensor_number, float power);
 
 // set target temperature
-void temp_set(uint16_t t, uint8_t sensor_number);
+void temp_set(uint8_t sensor_number, int16_t t);
 
 // return last read temperature
-uint16_t temp_get(uint8_t sensor_number);
+int16_t temp_get(uint8_t sensor_number);
 
 // return target temperature
-uint16_t temp_get_target(uint8_t sensor_number);
+int16_t temp_get_target(uint8_t sensor_number);
 
 // true if last read temp is close to target temp, false otherwise
-uint8_t temp_achieved(uint8_t sensor_number);
+int8_t temp_achieved(uint8_t sensor_number);
 
 // true if last read temp is close to target temp, false otherwise -- works for extruder and bed temperatures
-uint8_t temps_achieved (void);
+int8_t temps_achieved (void);
 
 // send current temperature to host
 void temp_print(void);
 
 // periodically read temperature and update heater with PID
-void temp_tick(void);
+void temp_tick(tTimer *pTimer);
+
+char* temp_debug(uint8_t sensor_number);
 
 #define NUMTEMPS 14
-extern uint16_t temptable[NUMTEMPS][3];
+extern int16_t temptable[NUMTEMPS][3];
 
-bool      temp_set_table_entry (uint8_t sensor_number, uint16_t temp, uint16_t adc_val);
-uint16_t  temp_get_table_entry (uint8_t sensor_number, uint16_t temp);
+bool      temp_set_table_entry (uint8_t sensor_number, int16_t temp, int16_t adc_val);
+int16_t  temp_get_table_entry (uint8_t sensor_number, int16_t temp);
 
 #endif	/* _TIMER_H */

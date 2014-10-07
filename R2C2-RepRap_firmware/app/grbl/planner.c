@@ -19,6 +19,8 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
+
 /* The ring buffer implementation gleaned from the wiring_serial library by David A. Mellis. */
 
 #include <inttypes.h>
@@ -52,10 +54,6 @@ static double previous_unit_vec[NUM_AXES];     // Unit vector of previous path l
 static double previous_nominal_speed;   // Nominal speed of previous path line segment
 
 static uint8_t acceleration_manager_enabled;   // Acceleration management active?
-
-
-uint8_t plan_queue_size(void);
-
 
 // Returns the index of the next block in the ring buffer
 // NOTE: Removed modulo (%) operator, which uses an expensive divide and multiplication.
@@ -249,10 +247,10 @@ static void planner_forward_pass()
 // NOTE: Final rates must be computed in terms of their respective blocks.
 static void calculate_trapezoid_for_block(block_t *block, double entry_factor, double exit_factor) {
   
-  int32_t acceleration_per_minute;
-  int32_t accelerate_steps;
-  int32_t decelerate_steps;
-  int32_t plateau_steps;
+  uint32_t acceleration_per_minute;
+  uint32_t accelerate_steps;
+  uint32_t decelerate_steps;
+  uint32_t plateau_steps;
 
   block->initial_rate = ceil(block->nominal_rate*entry_factor); // (step/min)
   block->final_rate = ceil(block->nominal_rate*exit_factor); // (step/min)

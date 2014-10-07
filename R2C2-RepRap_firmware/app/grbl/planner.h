@@ -19,6 +19,8 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
+
 #ifndef planner_h
 #define planner_h
                  
@@ -49,7 +51,7 @@ typedef struct {
   uint32_t steps_x, steps_y, steps_z; // Step count along each axis
   uint32_t steps_e; 
   uint32_t direction_bits;            // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
-  int32_t  step_event_count;          // The number of step events required to complete this block
+  uint32_t step_event_count;          // The number of step events required to complete this block
   uint32_t nominal_rate;              // The nominal step rate for this block in step_events/minute
   
   // Fields used by the motion planner to manage acceleration
@@ -63,7 +65,7 @@ typedef struct {
   // Settings for the trapezoid generator
   uint32_t initial_rate;              // The jerk-adjusted step rate at start of block  
   uint32_t final_rate;                // The minimal rate at exit
-  int32_t rate_delta;                 // The steps/minute to add or subtract when changing speed (must be positive)
+  uint32_t rate_delta;                // The steps/minute to add or subtract when changing speed (must be positive)
   uint32_t accelerate_until;          // The index of the step event on which to stop acceleration
   uint32_t decelerate_after;          // The index of the step event on which to start decelerating
   

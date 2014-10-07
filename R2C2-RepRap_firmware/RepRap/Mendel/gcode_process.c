@@ -40,7 +40,7 @@
 #include "config.h"
 #include "ff.h"
 #include "buzzer.h"
-#include "soundplay.h"
+#include "rtttl.h"
 //#include "debug.h"
 #include "planner.h"
 #include "stepper.h"
@@ -635,7 +635,7 @@ eParseResult process_gcode_command()
 	  
       sersendf("Begin file list\r\n");
       // list files in root folder
-      // RR - disabled - sd_list_dir();
+      // RR - buggy - sd_list_dir();
       sersendf("End file list\r\n");
 			
       break;
@@ -735,6 +735,14 @@ eParseResult process_gcode_command()
       // processed in gcode_parse_char()
       break;
 
+      case 80: // M80 - Turn on ATX
+	  // no-op, not used on R2C2
+	  break;
+	  
+	  case 81: // M80 - Turn off ATX
+	  // no-op, not used on R2C2
+	  break;
+	  
       case 82: // M82 - use absolute distance for extrusion
       // no-op, we always do absolute
       break;
@@ -764,7 +772,7 @@ eParseResult process_gcode_command()
       case 104:
       if (config.enable_extruder_1)
       {
-        temp_set(next_target.S, EXTRUDER_0);
+        temp_set(EXTRUDER_0, next_target.S);
 
         if (config.wait_on_temp)
         {
@@ -806,8 +814,8 @@ eParseResult process_gcode_command()
       // M109- set temp and wait
       case 109:
       if (config.enable_extruder_1)
-      {
-        temp_set(next_target.S, EXTRUDER_0);
+      {	  
+        temp_set(EXTRUDER_0, next_target.S);
         enqueue_wait_temp();
       }
       break;
@@ -824,14 +832,13 @@ eParseResult process_gcode_command()
 
       // M112- immediate stop
       case 112:
-      disableHwTimer(0); // disable stepper ?
-      //queue_flush(); // error: " undefined reference to `queue_flush'" ??
+        disableHwTimer(0); // disable stepper ?
+        //queue_flush(); // error: " undefined reference to `queue_flush'" ??
 
-      // disable extruder and bed heaters
-      temp_set(0, EXTRUDER_0);
-      temp_set(0, HEATED_BED_0);
-
-      power_off();
+        // disable extruder and bed heaters
+        temp_set(EXTRUDER_0,0);
+        temp_set(HEATED_BED_0,0);
+        power_off();
       break;
 
       // M113- extruder PWM
@@ -849,13 +856,14 @@ eParseResult process_gcode_command()
       else
       {
         sersendf("ok C: X:%g Y:%g Z:%g E:%g\r\n", startpoint.x, startpoint.y, startpoint.z, startpoint.e);
+		reply_sent = true;
       }
-      reply_sent = true;
+      
       break;
 
       // M115- report firmware version
       case 115:
-		sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:%s PROTOCOL_VERSION:1.0.3-1 MACHINE_TYPE:Mendel\r\n", "https%3A//github.com/racribeiro/R2C2_Firmware");
+		sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:https://github.com/racribeiro/R2C2_Firmware PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel\r\n");
       break;
 
       // M116 - Wait for all temperatures and other slowly-changing variables to arrive at their set values.
@@ -885,35 +893,45 @@ eParseResult process_gcode_command()
 
       // M130- heater P factor
       case 130:
-      //if (next_target.seen_S)
-      //p_factor = next_target.S;
+      if (next_target.seen_S)
+        config.p_factor_extruder_1 = next_target.S / 1000.0;
+      if (next_target.seen_X)
+        config.p_factor_extruder_1 = next_target.target.x;
+      if (next_target.seen_Y)
+        config.i_factor_extruder_1 = next_target.target.y;
+      if (next_target.seen_Z)
+        config.d_factor_extruder_1 = next_target.target.z;		
       break;
       // M131- heater I factor
       case 131:
-      //if (next_target.seen_S)
-      //i_factor = next_target.S;
+      if (next_target.seen_S)
+        config.i_factor_extruder_1 = next_target.S  / 1000.0;
       break;
 
       // M132- heater D factor
       case 132:
-      //if (next_target.seen_S)
-      //d_factor = next_target.S;
+      if (next_target.seen_S)
+        config.d_factor_extruder_1 = next_target.S  / 1000.0;
       break;
 
-      // M133- heater I limit
+      // M133- heated bed P=X, I=Y, D=Z
       case 133:
-      //if (next_target.seen_S)
-      //i_limit = next_target.S;
+      if (next_target.seen_X)
+        config.p_factor_heated_bed_0 = next_target.target.x;
+      if (next_target.seen_Y)
+        config.i_factor_heated_bed_0 = next_target.target.y;
+      if (next_target.seen_Z)
+        config.d_factor_heated_bed_0 = next_target.target.z;		
       break;
 
       // M134- save PID settings to eeprom
       case 134:
-      //heater_save_settings();
+        //heater_save_settings();
       break;
 
       /* M140 - Bed Temperature (Fast) */
       case 140:
-        temp_set(next_target.S, HEATED_BED_0);
+        temp_set(HEATED_BED_0,next_target.S);
       break;
 
       /* M141 - Chamber Temperature (Fast) */
@@ -1074,7 +1092,6 @@ eParseResult process_gcode_command()
           duration = next_target.P;
         }
 
-        buzzer_wait ();
         buzzer_play (frequency, duration);
       }
       break;
@@ -1082,7 +1099,8 @@ eParseResult process_gcode_command()
       // Plays Jingle Bell from Static Library
       case 301:
       {
-        play_jingle_bell();
+        //play_jingle_bell();
+		rtttl_play_axelf();
       }
       break;
 
@@ -1094,10 +1112,16 @@ eParseResult process_gcode_command()
       //
       case 302:
       {
+	    /*
         if (next_target.seen_P) {
           set_whole_note_time(next_target.P);
         }
         play_music_string(next_target.filename);    
+		*/
+		
+		rtttl_play(next_target.filename);
+		sersendf ("ok [%s]\r\n", next_target.filename);
+		reply_sent = true;
       }
       break;
 	  
@@ -1252,9 +1276,26 @@ eParseResult process_gcode_command()
 
       // M606 - wait for empty movement queue
       case 606:
-      enqueue_wait();
+        enqueue_wait();
       break;
 
+      // M701 - Temperature PID debug
+      case 701:
+	    sersendf("debug [%s]\r\n", temp_debug(EXTRUDER_0));		
+		sersendf("debug E current_pid = %g\r\n", get_pid_val(EXTRUDER_0));
+		sersendf("debug E current_temp = %d\r\n", temp_get(EXTRUDER_0));
+		sersendf("debug E target_temp = %d\r\n", temp_get_target(EXTRUDER_0));		
+		sersendf("debug E P:I:D = %g : %g : %g\r\n", config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1);  
+		break;
+				
+      case 702:
+		sersendf("debug [%s]\r\n", temp_debug(HEATED_BED_0));
+		sersendf("debug H current_pid = %g\r\n", get_pid_val(HEATED_BED_0));
+		sersendf("debug H current_temp = %d\r\n", temp_get(HEATED_BED_0));
+		sersendf("debug H target_temp = %d\r\n", temp_get_target(HEATED_BED_0));
+		sersendf("debug H P:I:D = %g : %g : %g\r\n", config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0);
+	  break;
+	  
       // unknown mcode: spit an error
       default:
       serial_writestr("E: Bad M-code ");

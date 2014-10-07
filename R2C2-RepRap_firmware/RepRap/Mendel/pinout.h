@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -165,6 +166,7 @@
 #define heated_bed_on() digital_write(HEATED_BED_0_HEATER_PORT, HEATED_BED_0_HEATER_PIN, HIGH);
 #define heated_bed_off() digital_write(HEATED_BED_0_HEATER_PORT, HEATED_BED_0_HEATER_PIN, LOW);
 
+/* placed here to make code backward compatible. R2C2 don't handle ATX power supplies */
 #define power_on()      if (0) {}
 #define power_off()     if (0) {}
 

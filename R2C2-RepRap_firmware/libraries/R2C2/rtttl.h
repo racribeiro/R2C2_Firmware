@@ -27,38 +27,21 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*  
+  Tone library to playout RTTTL + sound tracks
+  http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1253920105
+ 
+  More on RTTTL: 
+  http://en.wikipedia.org/wiki/Ring_Tone_Transfer_Language
+ 
+  Lots of sound tracks!
+  http://ez4mobile.com/nokiatone/rtttf.htm
+*/
 
-#ifndef	_SOUNDPLAY_H
-#define	_SOUNDPLAY_H
+#ifndef	_RTTTL_H
+#define	_RTTTL_H
 
-/*
- * For more notes and frequencies
- *
- * http://www.phy.mtu.edu/~suits/notefreqs.html
- *
- */
+void rtttl_play(char* music);
+void rtttl_play_axelf();
 
-#define FREQ_A3 220.00
-#define FREQ_AS3 233.08
-#define FREQ_BF3 233.08
-#define FREQ_B3 246.94
-#define FREQ_C4 261.63 //Middle C
-#define FREQ_CS4 277.18
-#define FREQ_DF4 277.18
-#define FREQ_D4 293.66
-#define FREQ_DS4 311.13
-#define FREQ_E4 329.63
-#define FREQ_F4 349.23
-#define FREQ_G4 392.00
-#define FREQ_A4 440.00
-#define FREQ_B4 493.88
-#define FREQ_C5 523.25
-#define FREQ_D5 587.33
-
-#define WHOLE_NOTE_TIME 1000
-
-void set_whole_note_time(uint32_t new_note_time);
-void play_music_string(char* music);
-void play_jingle_bell();
-
-#endif	/* _SOUNDPLAY_H */
+#endif	/* _RTTTL_H */

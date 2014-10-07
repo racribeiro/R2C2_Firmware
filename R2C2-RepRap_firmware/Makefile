@@ -166,12 +166,14 @@ INCLUDES = $(APPLIBDIR)/CMSISv1p30_LPC17xx/inc \
 
 # List C source files here. (C dependencies are automatically generated.)
 # use file-extension c for "c-only"-files
+
+#   $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \	
+
 SRC = \
 	$(wildcard $(APPLIBDIR)/LPCUSB/src/*.c) \
 	$(APPLIBDIR)/CMSISv1p30_LPC17xx/src/system_LPC17xx.c \
 	$(wildcard $(APPLIBDIR)/NXP/Drivers/source/lpc17xx_*.c) \
 	$(APPLIBDIR)/FatFs/src/ff.c \
-	$(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
 	$(APPLIBDIR)/FatFs/src/option/syscall.c \
 	$(APPLIBDIR)/FatFs/src/diskio.c \
 	$(APPLIBDIR)/FatFs/src/fattime.c \
@@ -186,8 +188,9 @@ SRC = \
 	$(APPLIBDIR)/R2C2/spi.c \
 	$(APPLIBDIR)/R2C2/sdcard.c \
 	$(APPLIBDIR)/R2C2/buzzer.c \
-	$(APPLIBDIR)/R2C2/soundplay.c \
+	$(APPLIBDIR)/R2C2/rtttl.c \
 	$(APPLIBDIR)/R2C2/uart.c \
+	$(APPLIBDIR)/R2C2/pid2.c \
 	$(APPSRC) \
 	main.c
 	
@@ -705,3 +708,5 @@ clean_list :
 # Listing of phony targets.
 .PHONY : all begin end sizebefore sizeafter gccversion build elf hex bin lss sym clean clean_list program createdirs
 
+install : FLASH_RUN/project.bin
+	cp /cygdrive/e/r2c2/R2C2_Firmware/R2C2-RepRap_firmware/FLASH_RUN/project.bin /cygdrive/f/firmware.bin

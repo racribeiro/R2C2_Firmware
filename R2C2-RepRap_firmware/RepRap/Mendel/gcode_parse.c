@@ -1,5 +1,6 @@
 /* Copyright (C) 2009-2010 Michael Moon aka Triffid_Hunter   */
 /* Copyright (c) 2011 Jorge Pinto - casainho@gmail.com       */
+/* Copyright (c) 2014 Rui Ribeiro - racribeiro@gmail.com     */
 /* All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -348,7 +349,7 @@ void gcode_parse_char(uint8_t c)
         // this is a bit hacky since string parameters don't fit in general G code syntax
         // NB: filename MUST start with a letter and MUST NOT contain spaces
         // letters will also be converted to uppercase
-        if ((next_target.M == 23) || (next_target.M == 28))
+        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 302))
         {
           next_target.getting_string = 1;
         }
@@ -584,8 +585,11 @@ void gcode_parse_char(uint8_t c)
 *                                                                           *
 ****************************************************************************/
 void request_resend(void)
-{
+{  
+  /* Repetier-Host doesn't handle this correcly
   serial_writestr("rs ");
   serwrite_uint8(next_target.N);
   serial_writestr("\r\n");
+  */
+  serial_writestr("ok\r\n");
 }
