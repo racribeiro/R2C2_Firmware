@@ -112,6 +112,10 @@ struct configuration
   double p_factor_heated_bed_0;
   double i_factor_heated_bed_0;
   double d_factor_heated_bed_0;
+  
+  // Safeguards for PID function
+  int32_t safeguard_extruder_1;
+  int32_t safeguard_heated_bed_0;
 };
 
 extern struct configuration config;

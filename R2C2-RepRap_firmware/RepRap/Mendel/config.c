@@ -133,6 +133,10 @@ tConfigItem config_lookup [] =
 		{ "p_factor_heated_bed_0", &config.p_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=4.3}},
 		{ "i_factor_heated_bed_0", &config.i_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.2}},
 		{ "d_factor_heated_bed_0", &config.d_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.1}},
+		
+		{ "safeguard_extruder_1", &config.safeguard_extruder_1, TYPE_INT, {.val_i=220}},
+		{ "safeguard_heated_bed_0", &config.safeguard_heated_bed_0, TYPE_INT, {.val_i=80}},		
+		
     };
 
 #define NUM_TOKENS (sizeof(config_lookup)/sizeof(tConfigItem))

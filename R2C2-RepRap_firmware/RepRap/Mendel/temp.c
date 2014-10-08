@@ -97,7 +97,7 @@ void extruderDriverCallback()
   uint8_t sensor_number = 0;
   for(sensor_number = 0; sensor_number < NUMBER_OF_SENSORS; sensor_number++) {
     temp_pattern_pos[sensor_number]++;
-    if (temp_pattern_pos[sensor_number] > TEMP_ELEMENTS)
+    if (temp_pattern_pos[sensor_number] >= TEMP_ELEMENTS)
       temp_pattern_pos[sensor_number] = 0;
 	
     if (temp_pattern[sensor_number][temp_pattern_pos[sensor_number]] != last_extruder_state[sensor_number]) {
@@ -240,7 +240,8 @@ void temp_tick(tTimer *pTimer)
   if (target_temp[EXTRUDER_0] == 0) {
     set_heater_pattern(EXTRUDER_0,0);
   } else {
-    if (current_temp[EXTRUDER_0] > 220) { // security above limit
+    if (current_temp[EXTRUDER_0] > config.safeguard_extruder_1) { // security above limit
+	  sersendf("- E Safeguard value exceded [%d], turning off extruder_1\r\n", config.safeguard_extruder_1);
       set_heater_pattern(EXTRUDER_0,0);
     } else {
       result = PID_Compute(&pid[EXTRUDER_0]);	  
@@ -256,7 +257,8 @@ void temp_tick(tTimer *pTimer)
   if (target_temp[HEATED_BED_0] == 0) {
     set_heater_pattern(HEATED_BED_0,0);
   } else {
-    if (current_temp[HEATED_BED_0] > 80) { // security above limit
+    if (current_temp[HEATED_BED_0] > config.safeguard_heated_bed_0) { // security above limit
+	  sersendf("- H Safeguard value exceded [%d], turning off heated_bed_0\r\n", config.safeguard_heated_bed_0);
       set_heater_pattern(HEATED_BED_0,0);	  
     } else {
 	
