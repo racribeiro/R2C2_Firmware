@@ -17,6 +17,8 @@
 #define DIRECT      0
 #define REVERSE     1
 
+#define MAX_PID_ERROR_ELEMENTS (20000 / 100)
+
 struct PID
 {
 	double dispKp;				// * we'll hold on to the tuning parameters in user-entered 
@@ -35,17 +37,22 @@ struct PID
                                 //   what these values are.  with pointers we'll just know.
 			  
 	unsigned long lastTime;
-	double ITerm, lastInput;
+	int16_t ITerm, lastInput, lastError;
 
 	unsigned long SampleTime;
 	double outMin, outMax;
 	bool inAuto;
+	
+	unsigned int error_log_size;
+	int16_t error_log[MAX_PID_ERROR_ELEMENTS];
+	int16_t input_log[MAX_PID_ERROR_ELEMENTS];
+	unsigned int current_pos;	
 } ;
 
 
   //commonly used functions **************************************************************************
     void PID_PID(struct PID *p, int16_t*, double*, int16_t*,        // * constructor.  links the PID to the Input, Output, and 
-        double, double, double, int);     //   Setpoint.  Initial tuning parameters are also set here
+        double, double, double, int, unsigned int, unsigned int);     //   Setpoint.  Initial tuning parameters are also set here
 	
     void PID_SetMode(struct PID *p,int Mode);               // * sets PID to either Manual (0) or Auto (non-0)
 

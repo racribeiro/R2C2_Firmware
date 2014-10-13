@@ -110,7 +110,7 @@ static double max_allowable_speed(double acceleration, double target_velocity, d
 
 
 // The kernel called by planner_recalculate() when scanning the plan from last to first entry.
-static bool planner_reverse_pass_kernel(block_t *prev, block_t *current, double next_entry_speed) 
+static bool planner_reverse_pass_kernel(__attribute__ ((unused)) block_t *prev, block_t *current, double next_entry_speed) 
 {
     // If entry speed is already at the maximum entry speed, no need to recheck. Block is cruising.
     // If not, block in state of acceleration or deceleration. Reset entry speed to maximum and 
@@ -247,10 +247,10 @@ static void planner_forward_pass()
 // NOTE: Final rates must be computed in terms of their respective blocks.
 static void calculate_trapezoid_for_block(block_t *block, double entry_factor, double exit_factor) {
   
-  uint32_t acceleration_per_minute;
-  uint32_t accelerate_steps;
-  uint32_t decelerate_steps;
-  uint32_t plateau_steps;
+  int32_t acceleration_per_minute;
+  int32_t accelerate_steps;
+  int32_t decelerate_steps;
+  int32_t plateau_steps;
 
   block->initial_rate = ceil(block->nominal_rate*entry_factor); // (step/min)
   block->final_rate = ceil(block->nominal_rate*exit_factor); // (step/min)
@@ -401,8 +401,8 @@ void plan_buffer_line (tActionRequest *pAction)
   double y;
   double z;
   double feed_rate;
-  uint8_t invert_feed_rate;
-  bool e_only = false;
+  // uint8_t invert_feed_rate;
+  // bool e_only = false;
   double speed_x, speed_y, speed_z, speed_e; // Nominal mm/minute for each axis
   int32_t target[NUM_AXES];
   uint8_t next_buffer_tail;
@@ -418,7 +418,7 @@ void plan_buffer_line (tActionRequest *pAction)
   y = pAction->target.y;
   z = pAction->target.z;
   feed_rate = pAction->target.feed_rate;
-  invert_feed_rate = pAction->target.invert_feed_rate;
+  // invert_feed_rate = pAction->target.invert_feed_rate;
   
   // Calculate target position in absolute steps
   target[X_AXIS] = lround(x*(double)config.steps_per_mm_x);
@@ -499,7 +499,7 @@ void plan_buffer_line (tActionRequest *pAction)
                             square(delta_mm[Z_AXIS]));
   if (block->millimeters == 0)
   {
-    e_only = true;
+    // e_only = true;
     block->millimeters = fabs(delta_mm[E_AXIS]);
   }
   inverse_millimeters = 1.0/block->millimeters;  // Inverse millimeters to remove multiple divides	

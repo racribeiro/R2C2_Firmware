@@ -34,6 +34,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include "adc.h"
 #include "machine.h"
 #include "config.h"
@@ -52,7 +53,10 @@
 void extruderDriverCallback();
 int get_current_extruder_1_pos();
 double get_pid_val(uint8_t sensor_number);
-void temp_init();
+void temp_init(unsigned int sampletime, unsigned int logduration);
+
+void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int logduration);
+
 double temp_get_output_temp(uint8_t sensor_id);
 
 void set_heater_pattern(uint8_t sensor_number, float power);

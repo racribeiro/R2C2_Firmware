@@ -48,12 +48,18 @@
 #include "planner.h"
 #include "stepper.h"
 
+#include "rtttl.h"
 
 tTimer temperatureTimer;
 tTimer extruderDriver;
 
 tLineBuffer serial_line_buf;
 tLineBuffer sd_line_buf;
+
+long timer1 = 0;  
+long timer2 = 0;
+
+int is_plan_queue_full = 0;
 
 /* Initialize ADC for reading sensors */
 void adc_init(void)
@@ -122,8 +128,27 @@ void io_init(void)
 
 void temperatureTimerCallback (tTimer *pTimer)
 {
+  long now;
+  
+  now = millis();
+  
   /* Manage the temperatures */
-  temp_tick(pTimer);
+  if (timer2 < now) {
+    timer2 = now + config.temp_sample_rate;
+    temp_tick(pTimer);
+  }
+  
+  #define DELAY1 250  
+  if (timer1 < now)
+  {
+    timer1 = now + DELAY1;
+    sersendf("MTEMP:%u %u %u %u\r\n", now, 
+	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
+	  // temp_get(HEATED_BED_0), temp_get_target(HEATED_BED_0) ,(uint8_t)(get_pid_val(HEATED_BED_0) * 2.55));	  
+	  if (is_plan_queue_full) {
+	    sersendf("- Planning Queue is Full\r\n");
+	  }
+    }
 }
 
 void check_boot_request (void)
@@ -135,6 +160,20 @@ void check_boot_request (void)
     while (1);
   }
 }
+
+void bootButtonCallback()
+{
+  rtttl_play_axelf();
+}
+
+void check_boot_button (void func())
+{
+  if (digital_read (4, (1<<29)) == 0)
+  {
+    func();
+  }
+}
+
 
 void init(void)
 {
@@ -153,21 +192,20 @@ void init(void)
 
 void init_timers()
 {
+  // Checks and refresh temperature extruder/heater pattern
+  // prints MTEMP
   AddSlowTimer (&temperatureTimer);
-  StartSlowTimer (&temperatureTimer, 10, temperatureTimerCallback);
+  StartSlowTimer (&temperatureTimer, 50, temperatureTimerCallback);
   temperatureTimer.AutoReload = 1;
 
+  // One tick on extruder/heater pattern
   AddSlowTimer (&extruderDriver);
   StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
   extruderDriver.AutoReload = 1;
 }
 
 int app_main (void)
-{
-  
-  long timer1 = 0;
-  long now = 0;
-  
+{    
   eParseResult parse_result;
 
   buzzer_init();
@@ -187,9 +225,7 @@ int app_main (void)
   st_init();    
 
   // temperature init
-  temp_init();
-    
-  	
+  temp_init(config.temp_sample_rate, config.temp_buffer_duration);    
 	
   // main loop
   for (;;)
@@ -226,8 +262,10 @@ int app_main (void)
       }
     }
 
+    is_plan_queue_full = plan_queue_full();
+	
     // if queue is full, we wait
-    if (!plan_queue_full())
+    if (!is_plan_queue_full)
     {
   
       /* At end of each line, put the "GCode" on movebuffer.
@@ -272,20 +310,12 @@ int app_main (void)
 	  }	  
     }
 
-    /* Do every 1000ms */
-	
-    #define DELAY1 1000
-	now = millis();
-    if (timer1 < now)
-    {
-      timer1 = now + DELAY1;
-      sersendf("MTEMP:%u %u %u %u\r\n", now, temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));	  
-    }
-	
 
 #ifdef USE_BOOT_BUTTON
     // OPTION: enter bootloader on "Boot" button
     check_boot_request();
+#else
+    check_boot_button(bootButtonCallback);
 #endif
 
   }

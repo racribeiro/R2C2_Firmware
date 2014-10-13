@@ -36,6 +36,7 @@
 
 #include "planner.h"
 
+
 // whether the asterisk (checksum-command) is included for checksum calculation
 // undefined for RepRap host software
 //#define ASTERISK_IN_CHECKSUM_INCLUDED
@@ -83,26 +84,37 @@ typedef struct {
 
 	uint8_t					seen_P	:1;
 	uint8_t					seen_N	:1;
-	uint8_t					seen_checksum				:1;
-	uint8_t					seen_semi_comment		:1;
+	
+	uint8_t					seen_I	:1;
+	uint8_t					seen_J	:1;
+	uint8_t					seen_K	:1;
+	uint8_t					seen_R	:1; 
+	
+	uint8_t					seen_checksum		:1;
+	uint8_t					seen_semi_comment	:1;
 	uint8_t					seen_parens_comment	:1;
-	uint8_t					getting_string				:1;
+	uint8_t					getting_string		:1;
 
-	uint8_t					option_relative			:1;
-	uint8_t					option_inches				:1;
+	uint8_t					option_relative		:1;
+	uint8_t					option_inches		:1;
 
-	uint8_t						G;
-	uint16_t				  M;
-	tTarget						target;
+	uint8_t					G;
+	uint16_t				M;
+	tTarget					target;
 
-	int16_t						S;
-	uint16_t					P;
+    double					I;
+	double					J;
+	double					K;
+	double					R;
+	
+	int16_t					S;
+	uint16_t				P;
 
-	uint32_t					N;
-	uint32_t					N_expected;
+	uint32_t				N;
+	uint32_t				N_expected;
 
-	uint8_t						checksum_read;
-	uint8_t						checksum_calculated;
+	uint8_t					checksum_read;
+	uint8_t					checksum_calculated;
 
   // for SD functions
 	uint16_t						chpos;

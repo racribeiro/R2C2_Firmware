@@ -97,7 +97,7 @@ void extruderDriverCallback()
   uint8_t sensor_number = 0;
   for(sensor_number = 0; sensor_number < NUMBER_OF_SENSORS; sensor_number++) {
     temp_pattern_pos[sensor_number]++;
-    if (temp_pattern_pos[sensor_number] >= TEMP_ELEMENTS)
+    if (temp_pattern_pos[sensor_number] == TEMP_ELEMENTS)
       temp_pattern_pos[sensor_number] = 0;
 	
     if (temp_pattern[sensor_number][temp_pattern_pos[sensor_number]] != last_extruder_state[sensor_number]) {
@@ -122,20 +122,22 @@ void temp_reset(int sensor_id)
   set_heater_pattern(sensor_id, 0);
 }
 
-void temp_init_sensor(uint8_t sensor_id)
+void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int logduration)
 {  
+   sersendf("- init - %u\r\n", sensor_id); /* for RepRap software */
+
    last_extruder_state[sensor_id] = 0;
    last_extruder_state[sensor_id] = LOW;
    set_heater_pattern(sensor_id, 0);
    
    if (sensor_id == EXTRUDER_0) {   
      PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
-                              config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT);  	 
+                              config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT, sampletime, logduration * 1000 / sampletime);  	 
    }
    
    if (sensor_id == HEATED_BED_0) {   
      PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
-                              config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT);  
+                              config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT, sampletime, logduration * 1000 / sampletime);  
    }
    
    PID_SetOutputLimits(&pid[sensor_id], 0, 100);
@@ -147,11 +149,11 @@ double temp_get_output_temp(uint8_t sensor_id)
   return output_temp[sensor_id];
 }
 
-void temp_init()
+void temp_init(unsigned int sampletime, unsigned int logduration)
 {
   int i;
   for(i = 0; i < NUMBER_OF_SENSORS; i++) {
-    temp_init_sensor(i);
+    temp_init_sensor(i, sampletime, logduration);
   }
 }
 
@@ -179,7 +181,7 @@ int16_t temp_get_target(uint8_t sensor_number)
 
 int8_t	temp_achieved(uint8_t sensor_number)
 {
-  if (current_temp[sensor_number] >= (target_temp[sensor_number] - 2))
+  if (current_temp[sensor_number] >= (target_temp[sensor_number] - config.temp_margin))
     return 255;
 
   return 0;
@@ -187,7 +189,7 @@ int8_t	temp_achieved(uint8_t sensor_number)
 
 int8_t temps_achieved (void)
 {
-  if ((current_temp[EXTRUDER_0] >= (target_temp[EXTRUDER_0] - 2)) && (current_temp[HEATED_BED_0] >= (target_temp[HEATED_BED_0] - 2)))
+  if ((current_temp[EXTRUDER_0] >= (target_temp[EXTRUDER_0] - config.temp_margin)) && (current_temp[HEATED_BED_0] >= (target_temp[HEATED_BED_0] - config.temp_margin)))
     return 255;
 
   return 0;
@@ -199,20 +201,14 @@ void temp_print()
 }
 
 void set_heater_pattern(uint8_t sensor_number, float power)
-{
-  int i;
-  
+{  
   double level, step, position;
 
-  output_temp[sensor_number] = power;  
-  
-  level = power * TEMP_ELEMENTS / 100;
-  
+  output_temp[sensor_number] = power;   
+  level = power * TEMP_ELEMENTS / 100;  
   step = TEMP_ELEMENTS / level;
   
-  for(i = 0; i < TEMP_ELEMENTS; i++) {    
-	temp_pattern[sensor_number][i] = 0;
-  }
+  memset (&temp_pattern[sensor_number], 0, sizeof(temp_pattern[sensor_number]));    
   
   if (power > 0) {
     position = 0;
@@ -228,7 +224,7 @@ double get_pid_val(uint8_t sensor_number)
   return *pid[sensor_number].myOutput;
 }
 
-void temp_tick(tTimer *pTimer)
+void temp_tick(__attribute__((unused)) tTimer *pTimer)
 {
   bool result = 0;
   

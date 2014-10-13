@@ -11,12 +11,11 @@
 
 #if _FS_REENTRANT
 /*------------------------------------------------------------------------*/
-/* Create a Synchronization Object
+/* Create a Synchronization Object	                                      */
 /*------------------------------------------------------------------------*/
-/* This function is called in f_mount function to create a new
-/  synchronization object, such as semaphore and mutex. When a FALSE is
-/  returned, the f_mount function fails with FR_INT_ERR.
-*/
+/* This function is called in f_mount function to create a new            */
+/* synchronization object, such as semaphore and mutex. When a FALSE is   */
+/* returned, the f_mount function fails with FR_INT_ERR.                  */
 
 BOOL ff_cre_syncobj (	/* TRUE:Function succeeded, FALSE:Could not create due to any error */
 	BYTE vol,			/* Corresponding logical drive being processed */
@@ -56,14 +55,17 @@ BOOL ff_del_syncobj (	/* TRUE:Function succeeded, FALSE:Could not delete due to 
 {
 	BOOL ret;
 
-	ret = CloseHandle(sobj);	/* Win32 *
+	ret = CloseHandle(sobj);	/* Win32 */
 
-//	ret = TRUE;					/* uITRON (nothing to do) *
+    /* uITRON (nothing to do) */
+//	ret = TRUE;					
 
-//	OSMutexDel(sobj, OS_DEL_ALWAYS, &err);		/* uC/OS-II */
+    /* uC/OS-II */
+//	OSMutexDel(sobj, OS_DEL_ALWAYS, &err);		
 //	ret = (err == OS_NO_ERR) ? TRUE : FALSE;
 
-//	ret = TRUE;					/* FreeRTOS (nothing to do) */
+    /* FreeRTOS (nothing to do) */
+//	ret = TRUE;					
 
 	return ret;
 }
@@ -85,12 +87,15 @@ BOOL ff_req_grant (	/* TRUE:Got a grant to access the volume, FALSE:Could not ge
 
 	ret = (WaitForSingleObject(sobj, _FS_TIMEOUT) == WAIT_OBJECT_0) ? TRUE : FALSE;	/* Win32 */
 
-//	ret = (wai_sem(sobj) == E_OK) ? TRUE : FALSE;	/* uITRON */
+    /* uITRON */
+//	ret = (wai_sem(sobj) == E_OK) ? TRUE : FALSE;	
 
-//	OSMutexPend(sobj, _FS_TIMEOUT, &err));			/* uC/OS-II */
+    /* uC/OS-II */
+//	OSMutexPend(sobj, _FS_TIMEOUT, &err));			
 //	ret = (err == OS_NO_ERR) ? TRUE : FALSE;
 
-//	ret = (xSemaphoreTake(sobj, _FS_TIMEOUT) == pdTRUE) ? TRUE : FALSE;	/* FreeRTOS */
+    /* FreeRTOS */
+//	ret = (xSemaphoreTake(sobj, _FS_TIMEOUT) == pdTRUE) ? TRUE : FALSE;	
 
 	return ret;
 }

@@ -89,14 +89,14 @@ static int32_t counter_x,       // Counter variables for the bresenham line trac
                counter_y, 
                counter_z;       
 static int32_t counter_e;       
-static uint32_t step_events_completed; // The number of step events executed in the current block
+static int32_t step_events_completed; // The number of step events executed in the current block
 static volatile int busy; // true when SIG_OUTPUT_COMPARE1A is being serviced. Used to avoid retriggering that handler.
 
 // Variables used by the trapezoid generation
 static uint32_t cycles_per_step_event;        // The number of machine cycles between each step event
 static uint32_t trapezoid_tick_cycle_counter; // The cycles since last trapezoid_tick. Used to generate ticks at a steady
                                               // pace without allocating a separate timer
-static uint32_t trapezoid_adjusted_rate;      // The current rate of step_events according to the trapezoid generator
+static int32_t trapezoid_adjusted_rate;      // The current rate of step_events according to the trapezoid generator
 static uint32_t min_safe_rate;  // Minimum safe rate for full deceleration rate reduction step. Otherwise halves step_rate.
 //static uint8_t cycle_start;     // Cycle start flag to indicate program start and block processing.
 
@@ -273,7 +273,7 @@ void stopBlink (void)
   unstep();
 }
 
-void blinkTimerCallback (tTimer *pTimer)
+void blinkTimerCallback (__attribute__((unused)) tTimer *pTimer)
 {
   if (leds_enabled)
   {
@@ -305,7 +305,7 @@ void st_wake_up() {
   enableHwTimer(1);
   
   dac_scale = (33 * 60 * config.steps_per_mm_x * mm_per_sec_per_volt) / 1024/10;
-
+  sersendf("- st_wake_up()\r\n");
 #endif
 }
 
@@ -321,6 +321,7 @@ static void st_go_idle() {
 #else
   disableHwTimer(1);
   clear_all_step_pins();
+  sersendf("- st_go_idle()\r\n");
 #endif
 }
 
@@ -568,15 +569,15 @@ void st_reset_interrupt (void)
   clear_all_step_pins ();
 }
 
-void accelCallback (tHwTimer *pTimer, uint32_t int_mask)
+void accelCallback (__attribute__((unused)) tHwTimer *pTimer, __attribute__((unused)) uint32_t int_mask)
 {
-  (void)pTimer;
+  // (void)pTimer;
   accel_flag = 1;
 }
 
-void stepCallback (tHwTimer *pTimer, uint32_t int_mask)
+void stepCallback (__attribute__((unused)) tHwTimer *pTimer, __attribute__((unused)) uint32_t int_mask)
 {
-  (void)pTimer;
+  // (void)pTimer;
 
   digital_write (1, (1<<15), 1);
 
@@ -669,7 +670,16 @@ void st_init()
 // Block until all buffered steps are executed
 void st_synchronize()
 {
-  while(plan_get_current_block()) { sleep_mode(); }    
+  sersendf("- Synching Plan\r\n");
+  while(plan_get_current_block()) {     
+    sersendf("- Still on queue: %d\r\n", plan_queue_size());	
+	
+	long now;
+	
+	now = millis() + 100;
+    while (now > millis()) {
+	}
+  }    
 }
 
 // Configures the prescaler and ceiling of timer 1 to produce the given rate as accurately as possible.

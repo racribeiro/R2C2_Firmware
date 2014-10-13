@@ -6,14 +6,19 @@
  * This Library is licensed under a GPLv3 License
  **********************************************************************************************/
 
+#include <stdlib.h>		/* ANSI memory controls */
+#include <malloc.h>		/* ANSI memory controls */
+#include <string.h>		/* ANSI memory controls */
+
 #include "pid2.h"
+#include "debug.h"
 
 /*Constructor (...)*********************************************************
  *    The parameters specified here are those for for which we can't set up 
  *    reliable defaults, so we need to have the user set them.
  ***************************************************************************/
 void PID_PID(struct PID *p, int16_t* Input, double* Output, int16_t* Setpoint,
-        double Kp, double Ki, double Kd, int ControllerDirection)
+        double Kp, double Ki, double Kd, int ControllerDirection, unsigned int sampletime, unsigned int error_log_size)
 {
 	
     p->myOutput = Output;
@@ -24,12 +29,21 @@ void PID_PID(struct PID *p, int16_t* Input, double* Output, int16_t* Setpoint,
 	PID_SetOutputLimits(p, 0, 255);				//default output limit corresponds to 
 												//the arduino pwm limits
 
-    p->SampleTime = 100;							//default Controller Sample Time is 0.1 seconds
+    p->SampleTime = sampletime;							//default Controller Sample Time is 0.1 seconds
 
     PID_SetControllerDirection(p, ControllerDirection);
     PID_SetTunings(p, Kp, Ki, Kd);
 
-    p->lastTime = millis() - p->SampleTime;				
+    p->lastTime = millis() - p->SampleTime;	
+
+    if (error_log_size > sizeof(p->error_log) / sizeof(*p->error_log)) {
+	  error_log_size = sizeof(p->error_log) / sizeof(*p->error_log);
+	}
+	
+    //p->error_log = malloc(sizeof(*p->error_log) * error_log_size);
+	memset(p->error_log, 0, sizeof(*p->error_log) * error_log_size);
+	p->error_log_size = error_log_size;
+	p->current_pos = 0;	
 }
  
  
@@ -39,27 +53,136 @@ void PID_PID(struct PID *p, int16_t* Input, double* Output, int16_t* Setpoint,
  *   pid Output needs to be computed.  returns true when the output is computed,
  *   false when nothing has been done.
  **********************************************************************************/ 
+ 
 bool PID_Compute(struct PID *p)
 {
    if(!p->inAuto) return false;
    unsigned long now = millis();
    unsigned long timeChange = (now - p->lastTime);
    if(timeChange>=p->SampleTime)
-   {
-      /*Compute all the working error variables*/
-	  double input = *p->myInput;
-      double error = *p->mySetpoint - input;
-      p->ITerm+= (p->ki * error);
-      if(p->ITerm > p->outMax) p->ITerm= p->outMax;
-      else if(p->ITerm < p->outMin) p->ITerm= p->outMin;
-      double dInput = (input - p->lastInput);
- 
-      /*Compute PID Output*/
-      double output = p->kp * error + p->ITerm - p->kd * dInput;
-      
+   {     
+      int16_t input = *p->myInput;
+      int16_t error = *p->mySetpoint - input;
+	  
+	  if (abs(error) < 4) {
+	    p->ITerm += error;
+		
+		if (p->ITerm > 10) {
+		  p->ITerm = 10;
+		}
+		
+		if (p->ITerm < -10) {
+		  p->ITerm = -10;
+		}
+		
+	  } else {
+	    p->ITerm = 0;
+	  }
+	  
+	  double P = error * p->kp;
+	  double I = p->ITerm * p->ki;
+	  double D = (p->lastInput - input) * p->kd;
+	  
+	  double output = P + I - D;
+
+      // sersendf(" - final : %g = %g + %g + %g [%d]\r\n", output, P, I, D, p->ITerm);
+	  
 	  if(output > p->outMax) output = p->outMax;
       else if(output < p->outMin) output = p->outMin;
+	  
+	  *p->myOutput = output;
+	  
+      /*Remember some variables for next time*/
+      p->lastInput = input;
+	  
+	  return true;
+   }
+   
+   
+   return false;
+}
+ 
+bool PID_Compute_(struct PID *p)
+{
+   if(!p->inAuto) return false;
+   unsigned long now = millis();
+   unsigned long timeChange = (now - p->lastTime);
+   if(timeChange>=p->SampleTime)
+   {      
+      /*Compute all the working error variables*/
+	  int16_t input = *p->myInput;
+      int16_t error = *p->mySetpoint - input;
+	  
+	  // p->ITerm += (p->ki * error);
+	  
+	  // if(p->ITerm > p->outMax) p->ITerm= p->outMax;
+      // else if(p->ITerm < p->outMin) p->ITerm= p->outMin;
+	  
 	  	  
+	  int16_t last_error = p->error_log[p->current_pos];
+	  p->error_log[p->current_pos] = error;	  
+      p->ITerm += (error - last_error);
+
+	  p->lastInput = p->input_log[p->current_pos];
+	  p->input_log[p->current_pos] = input;	  
+      int16_t dInput = (input + p->lastInput);
+
+	  p->current_pos++;
+	  if (p->current_pos == p->error_log_size) {
+	    p->current_pos = 0;
+	  }
+ 
+      double output = p->kp * error + p->ki * p->ITerm / p->error_log_size - p->kd * dInput / (p->error_log_size);
+ 
+      /*Compute PID Output*/
+	  /*
+      double output1= p->kp * error + p->ki * p->ITerm  + p->kd * dInput;
+      
+	  double future_input = input + error * (14000 / timeChange);
+	  double future_error = (*p->mySetpoint - future_input) / 1000.0;
+	  
+	  double output2 = - (future_error * future_error * future_error) - future_error / 100;
+	  */
+	  
+	  // sersendf(" - p: %g | i: %g | d: %g\r\n", p->kp, p->ki, p->kd);
+	  
+      /*	  
+      sersendf(" - ");
+	  unsigned int l = 0;
+	  unsigned int i = p->current_pos;
+	  do {
+	    l++;
+		
+	    sersendf(" [%d]", p->error_log[i++]);
+		if (i == p->error_log_size) {
+		  i = 0;
+		}
+		
+	    if (!(l % 10 != 0)) {
+		  sersendf("\r\n - ");	  
+		}
+
+	  } while (i != p->current_pos);
+	  sersendf("\r\n");	  
+	  */
+	  
+	  sersendf(" - p: %g | i: %g | d: %g\r\n", p->kp, p->ki, p->kd);
+	  
+	  // sersendf(" - future : %g, %g, %g\r\n", future_input, (*p->mySetpoint - future_input), output2);
+	  
+      /* Merges both calculations */
+	  //double output = output1 + 2 * output2 + *p->mySetpoint * 0.1;
+	  
+	  // double output = *p->mySetpoint * p->kp + future_error * p->kd;
+	  
+	  // double output = output1;
+	  sersendf(" - final : %g = %g + %g - %g [%d]\r\n", output, p->kp * error, p->ki * p->ITerm / p->error_log_size, p->kd * dInput, p->ITerm);
+
+      /**/
+
+	  if(output > p->outMax) output = p->outMax;
+      else if(output < p->outMin) output = p->outMin;
+	  
 	  *p->myOutput = output;
 	  
       /*Remember some variables for next time*/

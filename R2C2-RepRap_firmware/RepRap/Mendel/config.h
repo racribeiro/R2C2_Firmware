@@ -101,6 +101,8 @@ struct configuration
   
   // options
   int32_t wait_on_temp;
+  int32_t temp_margin;
+  
   int32_t enable_extruder_1;
   
   // PID Extruder
@@ -116,6 +118,18 @@ struct configuration
   // Safeguards for PID function
   int32_t safeguard_extruder_1;
   int32_t safeguard_heated_bed_0;
+  
+  // Extruder Sample Rate
+  int32_t temp_sample_rate;
+  int32_t temp_buffer_duration;
+  
+  // mm per Arc segment G2 & G3
+  int32_t mm_per_arc_segment;
+  int32_t arc_correction;
+  
+  // G02 & G03
+  int32_t circle_start_random;
+  int32_t circle_start_angle;
 };
 
 extern struct configuration config;

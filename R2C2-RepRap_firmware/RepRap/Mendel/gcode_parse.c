@@ -29,17 +29,17 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#include	<string.h>
+#include <math.h>
+#include <string.h>
 #include <stdbool.h>
 
-#include	"serial.h"
-#include	"sermsg.h"
+#include "serial.h"
+#include "sermsg.h"
 
-#include	"gcode_parse.h"
-#include	"gcode_process.h"
-#include        "machine.h"
-#include        "config.h"
+#include "gcode_parse.h"
+#include "gcode_process.h"
+#include "machine.h"
+#include "config.h"
 
 GCODE_COMMAND next_target;
 
@@ -388,6 +388,50 @@ void gcode_parse_char(uint8_t c)
         }
         break;
 
+        case 'I':
+        if (next_target.option_inches)
+        {
+          next_target.I = inch_to_mm(value);
+        }
+        else
+        {
+          next_target.I = value;
+        }
+        break;
+
+        case 'J':
+        if (next_target.option_inches)
+        {
+          next_target.J = inch_to_mm(value);
+        }
+        else
+        {
+          next_target.J = value;
+        }
+        break;
+
+        case 'K':
+        if (next_target.option_inches)
+        {
+          next_target.K = inch_to_mm(value);
+        }
+        else
+        {
+          next_target.K = value;
+        }
+        break;
+
+        case 'R':
+        if (next_target.option_inches)
+        {
+          next_target.R = inch_to_mm(value);
+        }
+        else
+        {
+          next_target.R = value;
+        }
+        break;
+		
         case 'E':
         if (next_target.option_inches)
         {
@@ -411,7 +455,7 @@ void gcode_parse_char(uint8_t c)
         break;
 
         case 'S':
-        next_target.S = value;
+          next_target.S = value;
         break;
 
         case 'P':
@@ -427,11 +471,11 @@ void gcode_parse_char(uint8_t c)
         break;
 
         case 'N':
-        next_target.N = value;
+          next_target.N = value;
         break;
 
         case '*':
-        next_target.checksum_read = value;
+          next_target.checksum_read = value;
         break;
       }
 
@@ -496,6 +540,22 @@ void gcode_parse_char(uint8_t c)
       next_target.seen_Z = 1;
       break;
 
+      case 'I':
+      next_target.seen_I = 1;
+      break;
+
+      case 'J':
+      next_target.seen_J = 1;
+      break;
+
+      case 'K':
+      next_target.seen_K = 1;
+      break;
+	  
+	  case 'R':
+      next_target.seen_R = 1;
+      break;
+	  
       case 'E':
       next_target.seen_E = 1;
       break;

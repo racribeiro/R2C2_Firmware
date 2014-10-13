@@ -49,10 +49,10 @@ typedef struct {
   
   // Fields used by the bresenham algorithm for tracing the line
   uint32_t steps_x, steps_y, steps_z; // Step count along each axis
-  uint32_t steps_e; 
+  int32_t steps_e; 
   uint32_t direction_bits;            // The direction bit set for this block (refers to *_DIRECTION_BIT in config.h)
-  uint32_t step_event_count;          // The number of step events required to complete this block
-  uint32_t nominal_rate;              // The nominal step rate for this block in step_events/minute
+  int32_t step_event_count;          // The number of step events required to complete this block
+  int32_t nominal_rate;              // The nominal step rate for this block in step_events/minute
   
   // Fields used by the motion planner to manage acceleration
   double nominal_speed;               // The nominal speed for this block in mm/min  
@@ -63,11 +63,11 @@ typedef struct {
   uint8_t nominal_length_flag;        // Planner flag for nominal speed always reached
 
   // Settings for the trapezoid generator
-  uint32_t initial_rate;              // The jerk-adjusted step rate at start of block  
-  uint32_t final_rate;                // The minimal rate at exit
-  uint32_t rate_delta;                // The steps/minute to add or subtract when changing speed (must be positive)
-  uint32_t accelerate_until;          // The index of the step event on which to stop acceleration
-  uint32_t decelerate_after;          // The index of the step event on which to start decelerating
+  int32_t initial_rate;              // The jerk-adjusted step rate at start of block  
+  int32_t final_rate;                // The minimal rate at exit
+  int32_t rate_delta;                // The steps/minute to add or subtract when changing speed (must be positive)
+  int32_t accelerate_until;          // The index of the step event on which to stop acceleration
+  int32_t decelerate_after;          // The index of the step event on which to start decelerating
   
   // extra
   uint8_t check_endstops; // for homing moves

@@ -196,7 +196,7 @@ static const U8 abDescriptors[] = {
     @param [in] bEP
     @param [in] bEPStatus
  */
-static void BulkOut(U8 bEP, U8 bEPStatus)
+static void BulkOut(U8 bEP, __attribute__((unused)) U8 bEPStatus)
 {
   int i, iLen;
 
@@ -227,7 +227,7 @@ static void BulkOut(U8 bEP, U8 bEPStatus)
     @param [in] bEP
     @param [in] bEPStatus
  */
-static void BulkIn(U8 bEP, U8 bEPStatus)
+static void BulkIn(U8 bEP, __attribute__((unused)) U8 bEPStatus)
 {
   int i, iLen;
 
@@ -290,7 +290,7 @@ static BOOL HandleClassRequest(TSetupPacket *pSetup, int *piLen, U8 **ppbData)
   return TRUE;
 }
 
-static void USBFrameHandler(U16 wFrame)
+static void USBFrameHandler(__attribute__((unused)) U16 wFrame)
 {
   if (_fifo_avail(&txfifo) > 0)
   {

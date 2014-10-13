@@ -123,6 +123,7 @@ tConfigItem config_lookup [] =
         { "steps_per_revolution_e", &config.steps_per_revolution_e, TYPE_INT, {.val_i=3200}},  // 200 * 16
 
         { "wait_on_temp", &config.wait_on_temp, TYPE_INT, {.val_i=0}},
+		{ "temp_margin", &config.temp_margin, TYPE_INT, {.val_i=2}},
 
         { "enable_extruder_1", &config.enable_extruder_1, TYPE_INT, {.val_i=1}},
 			
@@ -134,9 +135,17 @@ tConfigItem config_lookup [] =
 		{ "i_factor_heated_bed_0", &config.i_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.2}},
 		{ "d_factor_heated_bed_0", &config.d_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.1}},
 		
+		{ "temp_sample_rate", &config.temp_sample_rate, TYPE_INT, {.val_d=100}},
+		{ "temp_buffer_duration", &config.temp_buffer_duration, TYPE_INT, {.val_d=14}},
+				
 		{ "safeguard_extruder_1", &config.safeguard_extruder_1, TYPE_INT, {.val_i=220}},
 		{ "safeguard_heated_bed_0", &config.safeguard_heated_bed_0, TYPE_INT, {.val_i=80}},		
 		
+		{ "mm_per_arc_segment", &config.mm_per_arc_segment, TYPE_INT, {.val_i = 2 }},
+		{ "arc_correction", &config.arc_correction, TYPE_INT, {.val_i = 25 }},
+		
+		{ "circle_start_random", &config.circle_start_random, TYPE_INT, {.val_i = 1 }},
+		{ "circle_start_angle", &config.circle_start_angle, TYPE_INT, {.val_i = 0 }},
     };
 
 #define NUM_TOKENS (sizeof(config_lookup)/sizeof(tConfigItem))
@@ -199,26 +208,26 @@ char *get_token (char *pLine)
       // find next token
       pToken = pNext;
 
-      if (isalpha (*pNext))
+      if (isalpha ((unsigned char) *pNext))
         {
           // identifier is alpha (alpha|digit|"_")*
-          while (*pNext && ( isalpha(*pNext) || isdigit(*pNext) || (*pNext == '_' ) ) )
+          while (*pNext && ( isalpha((unsigned char) *pNext) || isdigit((unsigned char) *pNext) || (*pNext == '_' ) ) )
             {
               pNext ++;
             }
         }
-      else if (isdigit (*pNext) || char_match (*pNext, "+-"))
+      else if (isdigit ((unsigned char) *pNext) || char_match (*pNext, "+-"))
         {
           // number is [+|-] (digit)+ [. digit+]
           pNext ++;
-          while (*pNext && isdigit (*pNext) )
+          while (*pNext && isdigit ((unsigned char) *pNext) )
             {
               pNext ++;
             }
           if (*pNext && *pNext == '.')
             {
               pNext ++;
-              while (*pNext && isdigit (*pNext) )
+              while (*pNext && isdigit ((unsigned char) *pNext) )
                 {
                   pNext ++;
                 }
@@ -440,7 +449,7 @@ void write_config (void)
   char *pToken;
   char *pLine;
   unsigned j;
-  unsigned len;
+  // unsigned len;
 
   /* initialize SPI for SDCard */
   spi_init();
@@ -526,7 +535,7 @@ void write_config (void)
 
                               if (v < 0)
                                 {
-                                  f_printf(&file_out,'-');
+                                  f_printf(&file_out,"-");
                                   v = -v;
                                 }
 

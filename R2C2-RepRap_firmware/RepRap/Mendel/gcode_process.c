@@ -29,6 +29,9 @@
  */
 
 #include <string.h>
+#include <math.h>
+#include <time.h>
+#include <stdlib.h>
 #include "gcode_process.h"
 #include "gcode_parse.h"
 #include "serial.h"
@@ -45,6 +48,12 @@
 #include "planner.h"
 #include "stepper.h"
 #include "geometry.h"
+
+#define MOTION_MODE_SEEK 0 // G0
+#define MOTION_MODE_LINEAR 1 // G1
+#define MOTION_MODE_CW_ARC 2 // G2
+#define MOTION_MODE_CCW_ARC 3 // G3
+#define MOTION_MODE_CANCEL 4 // G80
 
 FIL       file;
 uint32_t  filesize = 0;
@@ -67,6 +76,13 @@ const double auto_reverse_feed_rate = 18000;
 double auto_prime_factor = 640;
 double auto_reverse_factor = 640;
 
+#define __SAFE_TRAVEL__
+
+void debug_tTarget(tTarget *t)
+{
+  sersendf("X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
+}
+
 static void enqueue_moved (tTarget *pTarget)
 {
   // grbl
@@ -83,7 +99,18 @@ static void enqueue_moved (tTarget *pTarget)
     if (config.enable_extruder_1 == 0)
       request.target.e = startpoint.e;
 
+
+#ifdef __SAFE_TRAVEL__
+  if (pTarget->x > config.printing_vol_x || pTarget->y > config.printing_vol_y ||
+      pTarget->x < 0 || pTarget->y < 0) {
+      sersendf ("- Reached limits, not traveling to: ");	  
+	  debug_tTarget(pTarget);
+  } else {
     plan_buffer_action (&request);
+  }
+#else
+    plan_buffer_action (&request);
+#endif
   }
   else
   {
@@ -409,6 +436,222 @@ void sd_seek(FIL *pFile, unsigned pos)
   f_lseek (pFile, pos);
 }
 
+
+void append_arc_movements(tTarget *next_targetd, double center_offset_x, double center_offset_y, double radius, bool is_clockwise)
+{
+    debug_tTarget(next_targetd);
+	
+    // Scary math
+    double center_x = startpoint.x + center_offset_x;
+    double center_y = startpoint.y + center_offset_y;
+    double vertical_travel = next_targetd->z - startpoint.z;
+    double r_axis_x = -center_offset_x; // Radius vector from center to current location
+    double r_axis_y = -center_offset_y;
+    double rt_axis_x = next_targetd->x - center_x;
+    double rt_axis_y = next_targetd->y - center_y;
+
+    // CCW angle between position and target from circle center. Only one atan2() trig computation required.
+    double angular_travel = atan2(r_axis_x * rt_axis_y - r_axis_y * rt_axis_x, r_axis_x * rt_axis_x + r_axis_y * rt_axis_y);
+    if (angular_travel < 0) {
+        angular_travel += 2 * M_PI;
+    }
+    if (is_clockwise) {
+        angular_travel -= 2 * M_PI;
+    }
+
+    // Find the distance for this gcode
+    double millimeters_of_travel = hypotf(angular_travel * radius, fabs(vertical_travel));
+
+    // We don't care about non-XYZ moves ( for example the extruder produces some of those )
+    if( millimeters_of_travel < 0.0001F ) {
+        return;
+    }
+
+    // Figure out how many segments for this gcode
+    uint16_t segments = floor(millimeters_of_travel / config.mm_per_arc_segment);
+
+    double theta_per_segment = angular_travel / segments;
+    double linear_per_segment = vertical_travel / segments;	
+	
+	/* 
+	
+	Vector rotation by transformation matrix: r is the original vector, r_T is the rotated vector,
+    and phi is the angle of rotation. Based on the solution approach by Jens Geisler.
+    r_T = [cos(phi) -sin(phi);
+    sin(phi) cos(phi] * r ;
+    For arc generation, the center of the circle is the axis of rotation and the radius vector is
+    defined from the circle center to the initial position. Each line segment is formed by successive
+    vector rotations. This requires only two cos() and sin() computations to form the rotation
+    matrix for the duration of the entire arc. Error may accumulate from numerical round-off, since
+    all float numbers are single precision on the Arduino. (True float precision will not have
+    round off issues for CNC applications.) Single precision error can accumulate to be greater than
+    tool precision in some cases. Therefore, arc path correction is implemented.
+
+    Small angle approximation may be used to reduce computation overhead further. This approximation
+    holds for everything, but very small circles and large mm_per_arc_segment values. In other words,
+    theta_per_segment would need to be greater than 0.1 rad and N_ARC_CORRECTION would need to be large
+    to cause an appreciable drift error. N_ARC_CORRECTION~=25 is more than small enough to correct for
+    numerical drift error. N_ARC_CORRECTION may be on the order a hundred(s) before error becomes an
+    issue for CNC machines with the single precision Arduino calculations.
+    This approximation also allows mc_arc to immediately insert a line segment into the planner
+    without the initial overhead of computing cos() or sin(). By the time the arc needs to be applied
+    a correction, the planner should have caught up to the lag caused by the initial mc_arc overhead.
+    This is important when there are successive arc motions.
+    
+	*/
+	
+    // Vector rotation matrix values
+	
+    double cos_T = 1 - 0.5F * theta_per_segment * theta_per_segment; // Small angle approximation
+    double sin_T = theta_per_segment;
+	
+	tTarget arc_target;
+    float sin_Ti;
+    float cos_Ti;
+    float r_axisi;
+    uint16_t i;
+    int8_t count = 0;
+	
+	// Initialize the linear axis
+    arc_target.z = startpoint.z;
+	
+	double d = millimeters_of_travel / segments;
+    double e_per_segment = d * extruder_1_speed / next_targetd->feed_rate * 24.0;
+
+    arc_target.e = startpoint.e; 
+	arc_target.feed_rate = next_targetd->feed_rate;
+
+    for (i = 1; i < segments; i++) { // Increment (segments-1)
+
+        if (count < config.arc_correction ) {
+            // Apply vector rotation matrix
+            r_axisi = r_axis_x * sin_T + r_axis_y * cos_T;
+            r_axis_x = r_axis_x * cos_T - r_axis_y * sin_T;
+            r_axis_y = r_axisi;
+            count++;
+        } else {
+            // Arc correction to radius vector. Computed only every N_ARC_CORRECTION increments.
+            // Compute exact location by applying transformation matrix from initial radius vector(=-offset).
+            cos_Ti = cosf(i * theta_per_segment);
+            sin_Ti = sinf(i * theta_per_segment);
+            r_axis_x = -center_offset_x * cos_Ti + center_offset_y * sin_Ti;
+            r_axis_y = -center_offset_x * sin_Ti - center_offset_y * cos_Ti;
+            count = 0;
+        }
+
+        // Update arc_target location
+        arc_target.x = center_x + r_axis_x;
+        arc_target.y = center_y + r_axis_y;
+        arc_target.z += linear_per_segment;		
+		arc_target.e += e_per_segment;
+
+        debug_tTarget(&arc_target);
+		
+        // Append this segment to the queue
+        enqueue_moved(&arc_target);
+	  
+    }
+	
+	// Set e movement to 0, the arc is done. Just position head at the target location.
+	next_targetd->e = arc_target.e;
+	
+	// Ensure last segment arrives at target location.
+    enqueue_moved(next_targetd);
+
+}
+
+void prepare_arc_movement(tTarget *next_targetd, double center_offset_x, double center_offset_y, int motion_mode)
+{
+   // Find the radius
+   float radius = hypotf(center_offset_x, center_offset_y);
+
+    // Set clockwise/counter-clockwise sign for mc_arc computations
+    bool is_clockwise = false;
+    if( motion_mode == MOTION_MODE_CW_ARC ) {
+        is_clockwise = true;
+    }
+
+    // Append arc
+    append_arc_movements(next_targetd, center_offset_x, center_offset_y, radius, is_clockwise );
+}
+
+void append_circle_movements(tTarget *next_targetd, double radius, double teta, int motion_mode)
+{
+  tTarget tt_targetd;
+
+  // Find the distance for this gcode
+  double millimeters_of_travel = 2 * M_PI * radius;
+  
+  // We don't care about non-XYZ moves ( for example the extruder produces some of those )
+  if( millimeters_of_travel < 0.1F ) {
+    return;
+  }
+
+  // Figure out how many segments for this gcode
+  uint16_t segments = floor(millimeters_of_travel / config.mm_per_arc_segment);
+  double segment_arc = 2 * M_PI / segments;
+  
+  if (motion_mode == MOTION_MODE_CCW_ARC) {
+    segment_arc = -segment_arc;
+  }
+
+  double center_x = next_targetd->x;
+  double center_y = next_targetd->y;
+  // Setup interpolated mid points temp structure		  
+  memcpy(&tt_targetd, next_targetd, sizeof(tTarget));
+
+  // Move to circle edge
+  tt_targetd.feed_rate = config.maximum_feedrate_x;
+  tt_targetd.x = center_x + cos(teta) * radius;
+  tt_targetd.y = center_y + sin(teta) * radius;
+  tt_targetd.e = startpoint.e;
+  enqueue_moved (&tt_targetd);
+	
+  // Set feed_rate	
+  tt_targetd.feed_rate = next_targetd->feed_rate;
+  
+  // Print circle
+  int segment = 0;
+  while(segment < segments) {
+  
+    // Next segment
+    segment++;
+	
+    teta += segment_arc;
+	
+	debug_tTarget(next_targetd);
+	
+	if (next_target.option_relative) {
+	  sersendf(" - rel - %g\r\n", tt_targetd.e / segments);
+	  tt_targetd.e = next_targetd->e / segments;	 
+	} else {
+	  sersendf(" - abs - %g\r\n", startpoint.e + next_targetd->e / segments);
+	  tt_targetd.e = startpoint.e + next_targetd->e / segments;	 
+	}
+
+    // Move to circle edge    
+    tt_targetd.x = center_x + cos(teta) * next_target.R;
+    tt_targetd.y = center_y + sin(teta) * next_target.R;		      
+	enqueue_moved (&tt_targetd);    
+  }	
+}
+
+void prepare_circle_movement(tTarget *next_targetd, double radius, int motion_mode)
+{
+  double teta;
+		  
+  if (config.circle_start_random == 0) {
+	srand(millis());
+	int v = rand();
+	teta = 2 * M_PI * (v / RAND_MAX);
+  } else {
+	teta = config.circle_start_angle * M_PI / 180.0;
+  }
+		
+  // Make the circle
+  append_circle_movements(next_targetd, radius, teta, motion_mode);
+}
+
 /****************************************************************************
  *                                                                           *
  * Command Received - process it                                             *
@@ -482,10 +725,27 @@ eParseResult process_gcode_command()
       break;
 
       //	G2 - Arc Clockwise
-      // unimplemented
+	  case 2:
+	    if (next_target.seen_R) {
+		  prepare_circle_movement(&next_targetd, next_target.R, MOTION_MODE_CW_ARC);
+		} 
+		
+		if (next_target.seen_I && next_target.seen_J) {
+	      prepare_arc_movement(&next_targetd, next_target.I, next_target.J, MOTION_MODE_CW_ARC);
+		}
+	  break;      
 
       //	G3 - Arc Counter-clockwise
-      // unimplemented
+	  case 3:
+	    if (next_target.seen_R) {
+		  prepare_circle_movement(&next_targetd, next_target.R, MOTION_MODE_CCW_ARC);
+		} 
+		
+		if (next_target.seen_I && next_target.seen_J) {
+	      prepare_arc_movement(&next_targetd, next_target.I, next_target.J, MOTION_MODE_CCW_ARC);
+		}
+	  break;      
+
 
       //	G4 - Dwell
       case 4:
@@ -901,17 +1161,25 @@ eParseResult process_gcode_command()
         config.i_factor_extruder_1 = next_target.target.y;
       if (next_target.seen_Z)
         config.d_factor_extruder_1 = next_target.target.z;		
+				
+	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+		
       break;
       // M131- heater I factor
       case 131:
       if (next_target.seen_S)
         config.i_factor_extruder_1 = next_target.S  / 1000.0;
+		
+	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+		
       break;
 
       // M132- heater D factor
       case 132:
       if (next_target.seen_S)
         config.d_factor_extruder_1 = next_target.S  / 1000.0;
+		
+	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);		
       break;
 
       // M133- heated bed P=X, I=Y, D=Z
@@ -922,6 +1190,9 @@ eParseResult process_gcode_command()
         config.i_factor_heated_bed_0 = next_target.target.y;
       if (next_target.seen_Z)
         config.d_factor_heated_bed_0 = next_target.target.z;		
+		
+	  temp_init_sensor(HEATED_BED_0, config.temp_sample_rate, config.temp_buffer_duration);
+	
       break;
 
       // M134- save PID settings to eeprom
