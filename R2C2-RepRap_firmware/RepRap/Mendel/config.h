@@ -110,10 +110,16 @@ struct configuration
   double i_factor_extruder_1;
   double d_factor_extruder_1;
   
+  double min_extruder_1;
+  double max_extruder_1;
+  
   // HEATED BED Extruder
   double p_factor_heated_bed_0;
   double i_factor_heated_bed_0;
   double d_factor_heated_bed_0;
+  
+  double min_heated_bed_0;
+  double max_heated_bed_0;
   
   // Safeguards for PID function
   int32_t safeguard_extruder_1;

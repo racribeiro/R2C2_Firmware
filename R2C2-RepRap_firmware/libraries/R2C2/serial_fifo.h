@@ -29,7 +29,7 @@
 
 #include "lpcusb_type.h"
 
-#define SERIAL_FIFO_SIZE 256
+#define SERIAL_FIFO_SIZE 2560
 
 typedef struct {
 	volatile int head;

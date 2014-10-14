@@ -27,6 +27,8 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <string.h>
+
 #include "lpc17xx_timer.h"
 #include "lpc17xx_clkpwr.h"
 #include "lpc17xx_gpio.h"
@@ -35,6 +37,7 @@
 #include "sdcard.h"
 #include "timer.h"
 
+#include "sersendf.h"
 
 //unsigned char clock_counter_250ms = 0;
 //unsigned char clock_counter_1s = 0;
@@ -206,6 +209,8 @@ void SysTickTimer_Init(void)
   }
 }
 
+unsigned int can_execute_timer = 1;
+
 //  SysTick_Handler happens every 1/1000 second
 void SysTick_Handler(void)
 {
@@ -222,7 +227,6 @@ void SysTick_Handler(void)
     counter = 0;
   }
   /***********************************************************************/
-
   
   // process the slow timer list
   pTimer = SlowTimerHead;
@@ -241,12 +245,15 @@ void SysTick_Handler(void)
           pTimer->Running = 0;
         
         pTimer->Expired = 1;
-        if (pTimer->timerCallback)
+        if (pTimer->timerCallback) {
+		  // sersendf(" - calling: %s\r\n", pTimer->name);
           pTimer->timerCallback(pTimer);
+		}
       }
     }
     pTimer = pTimer->pNext;
   }
+  
   /***********************************************************************/
 }
 
@@ -280,8 +287,10 @@ void delay(int d){
 
 
 // Slow timers
-bool AddSlowTimer (tTimer *pTimer)
+bool AddSlowTimer (tTimer *pTimer, char *name)
 {
+  strcpy(pTimer->name, name);
+  
   pTimer->pNext = NULL;
   if (SlowTimerHead == NULL)
   {

@@ -131,9 +131,15 @@ tConfigItem config_lookup [] =
 		{ "i_factor_extruder_1", &config.i_factor_extruder_1, TYPE_DOUBLE, {.val_d=0.2}},
 		{ "d_factor_extruder_1", &config.d_factor_extruder_1, TYPE_DOUBLE, {.val_d=0.1}},
 		
+		{ "min_extruder_1", &config.min_extruder_1, TYPE_DOUBLE, {.val_d=15}},
+		{ "max_extruder_1", &config.max_extruder_1, TYPE_DOUBLE, {.val_d=35}},
+		
 		{ "p_factor_heated_bed_0", &config.p_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=4.3}},
 		{ "i_factor_heated_bed_0", &config.i_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.2}},
 		{ "d_factor_heated_bed_0", &config.d_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.1}},
+		
+		{ "min_heated_bed_0", &config.min_heated_bed_0, TYPE_DOUBLE, {.val_d=15}},
+		{ "max_heated_bed_0", &config.max_heated_bed_0, TYPE_DOUBLE, {.val_d=35}},
 		
 		{ "temp_sample_rate", &config.temp_sample_rate, TYPE_INT, {.val_d=100}},
 		{ "temp_buffer_duration", &config.temp_buffer_duration, TYPE_INT, {.val_d=14}},

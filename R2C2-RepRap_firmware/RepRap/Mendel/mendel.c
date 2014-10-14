@@ -141,14 +141,14 @@ void temperatureTimerCallback (tTimer *pTimer)
   #define DELAY1 250  
   if (timer1 < now)
   {
-    timer1 = now + DELAY1;
+    timer1 = now + DELAY1;	
     sersendf("MTEMP:%u %u %u %u\r\n", now, 
 	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
 	  // temp_get(HEATED_BED_0), temp_get_target(HEATED_BED_0) ,(uint8_t)(get_pid_val(HEATED_BED_0) * 2.55));	  
-	  if (is_plan_queue_full) {
-	    sersendf("- Planning Queue is Full\r\n");
-	  }
-    }
+	if (is_plan_queue_full) {
+	  sersendf("- Planning Queue is Full\r\n");
+	}
+  }
 }
 
 void check_boot_request (void)
@@ -164,6 +164,7 @@ void check_boot_request (void)
 void bootButtonCallback()
 {
   rtttl_play_axelf();
+  serial_writestr("Happy!\r\nok\r\n");
 }
 
 void check_boot_button (void func())
@@ -194,12 +195,12 @@ void init_timers()
 {
   // Checks and refresh temperature extruder/heater pattern
   // prints MTEMP
-  AddSlowTimer (&temperatureTimer);
+  AddSlowTimer (&temperatureTimer, "Temperature Monitor");
   StartSlowTimer (&temperatureTimer, 50, temperatureTimerCallback);
   temperatureTimer.AutoReload = 1;
 
   // One tick on extruder/heater pattern
-  AddSlowTimer (&extruderDriver);
+  AddSlowTimer (&extruderDriver, "Temperature Driver");
   StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
   extruderDriver.AutoReload = 1;
 }
@@ -230,7 +231,6 @@ int app_main (void)
   // main loop
   for (;;)
   {
-
     // process characters from the serial port
     while (!serial_line_buf.seen_lf && (serial_rxchars() != 0) )
     {
@@ -275,7 +275,7 @@ int app_main (void)
        */
   
       parse_result = PR_UNKNOWN;
-  
+
       // give priority to user commands
       if (serial_line_buf.seen_lf)
       {
@@ -307,7 +307,7 @@ int app_main (void)
 		  default:
 		    break;
 		}
-	  }	  
+	  }	  	  
     }
 
 

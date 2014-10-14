@@ -612,7 +612,7 @@ void append_circle_movements(tTarget *next_targetd, double radius, double teta, 
   
   // Print circle
   int segment = 0;
-  while(segment < segments) {
+  while(segment != segments) {
   
     // Next segment
     segment++;
@@ -640,10 +640,10 @@ void prepare_circle_movement(tTarget *next_targetd, double radius, int motion_mo
 {
   double teta;
 		  
-  if (config.circle_start_random == 0) {
+  if (config.circle_start_random == 1) {
 	srand(millis());
 	int v = rand();
-	teta = 2 * M_PI * (v / RAND_MAX);
+	teta = 2 * M_PI * ((double) v / RAND_MAX);
   } else {
 	teta = config.circle_start_angle * M_PI / 180.0;
   }
@@ -1182,7 +1182,7 @@ eParseResult process_gcode_command()
 	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);		
       break;
 
-      // M133- heated bed P=X, I=Y, D=Z
+      // M133- heated bed P=X, I=Y, D=Z, MIN=I, MAX=J
       case 133:
       if (next_target.seen_X)
         config.p_factor_heated_bed_0 = next_target.target.x;
@@ -1190,6 +1190,10 @@ eParseResult process_gcode_command()
         config.i_factor_heated_bed_0 = next_target.target.y;
       if (next_target.seen_Z)
         config.d_factor_heated_bed_0 = next_target.target.z;		
+      if (next_target.seen_I)
+        config.min_heated_bed_0 = next_target.target.y;
+      if (next_target.seen_J)
+        config.max_heated_bed_0 = next_target.target.z;		
 		
 	  temp_init_sensor(HEATED_BED_0, config.temp_sample_rate, config.temp_buffer_duration);
 	
@@ -1504,8 +1508,8 @@ eParseResult process_gcode_command()
 
       // M600 print the values read from the config file
       case 600:
-      {
-        print_config();
+      {	    
+        print_config();		
       }
       break;
 
@@ -1557,6 +1561,7 @@ eParseResult process_gcode_command()
 		sersendf("debug E current_temp = %d\r\n", temp_get(EXTRUDER_0));
 		sersendf("debug E target_temp = %d\r\n", temp_get_target(EXTRUDER_0));		
 		sersendf("debug E P:I:D = %g : %g : %g\r\n", config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1);  
+		sersendf("debug E MIN= %g MAX=%g\r\n", config.min_extruder_1, config.max_extruder_1);  		
 		break;
 				
       case 702:
@@ -1565,6 +1570,7 @@ eParseResult process_gcode_command()
 		sersendf("debug H current_temp = %d\r\n", temp_get(HEATED_BED_0));
 		sersendf("debug H target_temp = %d\r\n", temp_get_target(HEATED_BED_0));
 		sersendf("debug H P:I:D = %g : %g : %g\r\n", config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0);
+		sersendf("debug H MIN= %g MAX=%g\r\n", config.min_heated_bed_0, config.max_heated_bed_0);  				
 	  break;
 	  
       // unknown mcode: spit an error

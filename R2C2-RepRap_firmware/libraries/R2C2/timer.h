@@ -48,6 +48,7 @@ typedef void (*tTimerCallback)(tTimer *);
 
 struct tTimer
 {
+  char              name[32];
   tTimer            *pNext;
   tTimerCallback    timerCallback;
   uint32_t          Current;
@@ -83,7 +84,7 @@ void delayMicrosecondsInterruptible(int us);
 long millis(void);
 
 // Slow timer (i.e. +/-1ms resolution)
-bool AddSlowTimer (tTimer *pTimer);
+bool AddSlowTimer (tTimer *pTimer, char *name);
 void StartSlowTimer (tTimer *pTimer, uint32_t intervalMillis, tTimerCallback timerCallback);
 void StopSlowTimer (tTimer *pTimer);
 #define IsSlowTimerExpired (pTimer)  ((pTimer)->Expired)

@@ -38,23 +38,14 @@ void fifo_init(fifo_t *fifo, unsigned char *buf)
 	fifo->buf = buf;
 }
 
-static unsigned int block_fifo = 0;
-
 // Atomic version
 unsigned char fifo_put(fifo_t *fifo, unsigned char c)
 {
   unsigned char t;
   
-  while (block_fifo > 0) {
-  }
-  
-  block_fifo++;
-  
   NVIC_DisableIRQ(USB_IRQn);
   t = _fifo_put(fifo, c);
   NVIC_EnableIRQ(USB_IRQn);
-  
-  block_fifo--;
   
   return t;
 }
@@ -81,17 +72,10 @@ unsigned char fifo_get(fifo_t *fifo, unsigned char *pc)
 {
   unsigned char t;
 
-  while (block_fifo > 0) {
-  }
-  
-  block_fifo++;
-
   NVIC_DisableIRQ(USB_IRQn);
   t = _fifo_get(fifo, pc);
   NVIC_EnableIRQ(USB_IRQn);
   
-  block_fifo--;
-
   return t;
 }
 
@@ -116,18 +100,11 @@ unsigned char _fifo_get(fifo_t *fifo, unsigned char *pc)
 int fifo_avail(fifo_t *fifo)
 {
   int t;
-  
-  while (block_fifo > 0) {
-  }
-  
-  block_fifo++;
 
   NVIC_DisableIRQ(USB_IRQn);
   t = _fifo_avail(fifo);
   NVIC_EnableIRQ(USB_IRQn);
-  
-  block_fifo--;
-	
+
   return t;
 }
 
@@ -141,17 +118,10 @@ int fifo_free(fifo_t *fifo)
 {
   int t;
 
-  while (block_fifo > 0) {
-  }
-  
-  block_fifo++;
-
   NVIC_DisableIRQ(USB_IRQn);
   t = _fifo_free(fifo);
   NVIC_EnableIRQ(USB_IRQn);
-  
-  block_fifo++;
-	
+
   return t;
 }
 

@@ -133,14 +133,15 @@ void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int l
    if (sensor_id == EXTRUDER_0) {   
      PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
                               config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT, sampletime, logduration * 1000 / sampletime);  	 
+     PID_SetOutputLimits(&pid[sensor_id], config.min_extruder_1, config.max_extruder_1);
    }
    
    if (sensor_id == HEATED_BED_0) {   
      PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
                               config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT, sampletime, logduration * 1000 / sampletime);  
+     PID_SetOutputLimits(&pid[sensor_id], config.min_heated_bed_0, config.max_heated_bed_0);							  
    }
-   
-   PID_SetOutputLimits(&pid[sensor_id], 0, 100);
+      
    PID_SetMode(&pid[sensor_id], AUTOMATIC);
 }
 

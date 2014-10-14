@@ -154,6 +154,6 @@ void buzzer_init (void)
   PinCfg.Pinnum = 2;
   PINSEL_ConfigPin(&PinCfg);
   
-  AddSlowTimer (&buzzerTimer);
+  AddSlowTimer (&buzzerTimer, "Buzzer");
 }
 
