@@ -144,4 +144,6 @@ void read_config (void);
 void print_config (void);
 void write_config (void);
 
+int is_boot_button_pressed();
+
 #endif /* CONFIG_H */

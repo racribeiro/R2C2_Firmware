@@ -92,6 +92,8 @@ char* temp_debug(uint8_t sensor_number)
   return debug_str[sensor_number];
 }
 
+
+// TO-DO: to register call back "on"/"off" functions to each "sensor"
 void extruderDriverCallback()
 {
   uint8_t sensor_number = 0;
@@ -103,15 +105,25 @@ void extruderDriverCallback()
     if (temp_pattern[sensor_number][temp_pattern_pos[sensor_number]] != last_extruder_state[sensor_number]) {
       last_extruder_state[sensor_number] = !last_extruder_state[sensor_number];
 	  if (last_extruder_state[sensor_number]) {
-	    if (sensor_number == EXTRUDER_0)
-          extruder_heater_on();
-		if (sensor_number == HEATED_BED_0)
+	    if (sensor_number == EXTRUDER_0) {
+          extruder_heater_on();		  
+		}
+		if (sensor_number == HEATED_BED_0) {
           heated_bed_on();
+		}
+		if (sensor_number == EXTRUDER_0_FAN) {          
+		  extruder_fan_on();
+		}  
       } else {
-        if (sensor_number == EXTRUDER_0)
-          extruder_heater_off();
-		if (sensor_number == HEATED_BED_0)
+        if (sensor_number == EXTRUDER_0) {
+          extruder_heater_off();		 
+		}
+		if (sensor_number == HEATED_BED_0) {
           heated_bed_off();
+		}
+		if (sensor_number == EXTRUDER_0_FAN) {          
+		  extruder_fan_off();
+		}  
       }
 	}
   }
@@ -126,7 +138,7 @@ void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int l
 {  
    sersendf("- init - %u\r\n", sensor_id); /* for RepRap software */
 
-   last_extruder_state[sensor_id] = 0;
+   // last_extruder_state[sensor_id] = 0;
    last_extruder_state[sensor_id] = LOW;
    set_heater_pattern(sensor_id, 0);
    
@@ -142,7 +154,7 @@ void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int l
      PID_SetOutputLimits(&pid[sensor_id], config.min_heated_bed_0, config.max_heated_bed_0);							  
    }
       
-   PID_SetMode(&pid[sensor_id], AUTOMATIC);
+   // PID_SetMode(&pid[sensor_id], AUTOMATIC);
 }
 
 double temp_get_output_temp(uint8_t sensor_id)
@@ -156,6 +168,11 @@ void temp_init(unsigned int sampletime, unsigned int logduration)
   for(i = 0; i < NUMBER_OF_SENSORS; i++) {
     temp_init_sensor(i, sampletime, logduration);
   }
+}
+
+void extruder_fan_set(int16_t power)
+{
+  temp_set(EXTRUDER_0_FAN, (int) (power / 2.55));
 }
 
 void temp_set(uint8_t sensor_number,int16_t t)
@@ -198,7 +215,16 @@ int8_t temps_achieved (void)
 
 void temp_print()
 {
-  sersendf("ok T:%u.0 B:%u.0\r\n", current_temp[EXTRUDER_0], current_temp[HEATED_BED_0]); /* for RepRap software */
+
+  // ,  ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
+
+  sersendf("ok T:%u /%u B:%u /%u B@:%u T0:%u /%u @0:%u /%u\r\n", 
+    temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0), 
+	temp_get(HEATED_BED_0), temp_get_target(HEATED_BED_0), 	
+	(uint8_t)(get_pid_val(HEATED_BED_0) * 2.55),
+	temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0), 
+	(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55)); /* for RepRap software */
+	
 }
 
 void set_heater_pattern(uint8_t sensor_number, float power)
@@ -265,6 +291,11 @@ void temp_tick(__attribute__((unused)) tTimer *pTimer)
 	    set_heater_pattern(HEATED_BED_0,*pid[HEATED_BED_0].myOutput);
       }
     }
+  }
+  
+  if (current_temp[EXTRUDER_0_FAN] != target_temp[EXTRUDER_0_FAN]) {  
+    current_temp[EXTRUDER_0_FAN] = target_temp[EXTRUDER_0_FAN];
+	set_heater_pattern(EXTRUDER_0_FAN,target_temp[EXTRUDER_0_FAN]);    
   }
   
   /* Manage heater using simple ON/OFF logic, no PID */  

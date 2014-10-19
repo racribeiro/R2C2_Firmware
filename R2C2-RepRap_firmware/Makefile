@@ -169,6 +169,8 @@ INCLUDES = $(APPLIBDIR)/CMSISv1p30_LPC17xx/inc \
 
 #   $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \	
 
+# $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
+
 SRC = \
 	$(wildcard $(APPLIBDIR)/LPCUSB/src/*.c) \
 	$(APPLIBDIR)/CMSISv1p30_LPC17xx/src/system_LPC17xx.c \
@@ -709,4 +711,4 @@ clean_list :
 .PHONY : all begin end sizebefore sizeafter gccversion build elf hex bin lss sym clean clean_list program createdirs
 
 install : FLASH_RUN/project.bin
-	cp /cygdrive/e/r2c2/R2C2_Firmware/R2C2-RepRap_firmware/FLASH_RUN/project.bin /cygdrive/f/firmware.bin
+	cp /cygdrive/e/r2c2/R2C2_Firmware/R2C2-RepRap_firmware/FLASH_RUN/project.bin /cygdrive/g/firmware.bin

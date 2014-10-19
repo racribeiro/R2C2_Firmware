@@ -307,13 +307,16 @@ FRESULT sd_list_dir_sub (char *path)
   fno.lfsize = sizeof(lfn);
 #endif
 
+// sersendf("opendir %s\n\r", path);
   res = f_opendir(&dir, path);
+// sersendf(" - opendir = %d\n\r", res);  
   if (res == FR_OK)
   {
     i = strlen(path);
     for (;;)
     {
       res = f_readdir(&dir, &fno);
+// sersendf(" - readdir = %d\n\r", res);  	  
       if (res != FR_OK || fno.fname[0] == 0) break;
       if (fno.fname[0] == '.') continue;
 #if _USE_LFN
@@ -339,7 +342,7 @@ FRESULT sd_list_dir_sub (char *path)
       {
         sersendf("%s/%s\r\n", path, fn);
       }
-    }
+    }	
   }
 
   return res;
@@ -347,7 +350,7 @@ FRESULT sd_list_dir_sub (char *path)
 
 void sd_list_dir (void)
 {
-  char path[120];
+  char path[256];
 
   strcpy (path, "");
 
@@ -893,10 +896,10 @@ eParseResult process_gcode_command()
         sd_initialise();
       }
 	  
-      sersendf("Begin file list\r\n");
+      sersendf("Begin file list\r\n"); // This is part of the protocol!
       // list files in root folder
-      // RR - buggy - sd_list_dir();
-      sersendf("End file list\r\n");
+      //sd_list_dir();
+      sersendf("End file list\r\n"); // This is also part of the protocol!
 			
       break;
 
@@ -1038,28 +1041,29 @@ eParseResult process_gcode_command()
         {
           enqueue_wait_temp();
         }
+		
       }
 
       break;
 
       // M105- get temperature
       case 105:
-      temp_print();
-      reply_sent = true;
+        temp_print();
+        reply_sent = true;
       break;
 
       // M106- fan on
-      case 106:
-	  if (next_target.S == 0) {
-	    extruder_fan_off();
-	  } else {
-        extruder_fan_on();
-      }
+      case 106:	    
+	    if (next_target.seen_S) {
+	      extruder_fan_set(next_target.S);
+		} else {
+		  extruder_fan_set(255);
+		}
       break;
 
       // M107- fan off
       case 107:
-      extruder_fan_off();
+      	extruder_fan_set(0);
       break;
 
       // M108 - set extruder speed
@@ -1160,7 +1164,11 @@ eParseResult process_gcode_command()
       if (next_target.seen_Y)
         config.i_factor_extruder_1 = next_target.target.y;
       if (next_target.seen_Z)
-        config.d_factor_extruder_1 = next_target.target.z;		
+        config.d_factor_extruder_1 = next_target.target.z;	
+      if (next_target.seen_I)
+        config.max_extruder_1 = next_target.I;
+      if (next_target.seen_J)
+        config.min_extruder_1 = next_target.J;			
 				
 	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
 		
@@ -1191,9 +1199,9 @@ eParseResult process_gcode_command()
       if (next_target.seen_Z)
         config.d_factor_heated_bed_0 = next_target.target.z;		
       if (next_target.seen_I)
-        config.min_heated_bed_0 = next_target.target.y;
+        config.max_heated_bed_0 = next_target.I;
       if (next_target.seen_J)
-        config.max_heated_bed_0 = next_target.target.z;		
+        config.min_heated_bed_0 = next_target.J;		
 		
 	  temp_init_sensor(HEATED_BED_0, config.temp_sample_rate, config.temp_buffer_duration);
 	
@@ -1562,7 +1570,7 @@ eParseResult process_gcode_command()
 		sersendf("debug E target_temp = %d\r\n", temp_get_target(EXTRUDER_0));		
 		sersendf("debug E P:I:D = %g : %g : %g\r\n", config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1);  
 		sersendf("debug E MIN= %g MAX=%g\r\n", config.min_extruder_1, config.max_extruder_1);  		
-		break;
+	  break;
 				
       case 702:
 		sersendf("debug [%s]\r\n", temp_debug(HEATED_BED_0));
@@ -1573,6 +1581,14 @@ eParseResult process_gcode_command()
 		sersendf("debug H MIN= %g MAX=%g\r\n", config.min_heated_bed_0, config.max_heated_bed_0);  				
 	  break;
 	  
+	  // M703 - Extruder Fan Value debug
+      case 703:
+	    sersendf("debug [%s]\r\n", temp_debug(EXTRUDER_0_FAN));				
+		sersendf("debug F current_power = %d\r\n", temp_get(EXTRUDER_0_FAN));
+		sersendf("debug F target_power = %d\r\n", temp_get_target(EXTRUDER_0_FAN));		
+	  break;
+		
+		
       // unknown mcode: spit an error
       default:
       serial_writestr("E: Bad M-code ");

@@ -52,6 +52,7 @@
 
 tTimer temperatureTimer;
 tTimer extruderDriver;
+tTimer commandLineDriver;
 
 tLineBuffer serial_line_buf;
 tLineBuffer sd_line_buf;
@@ -128,6 +129,7 @@ void io_init(void)
 
 void temperatureTimerCallback (tTimer *pTimer)
 {
+  // static long queue_next_ok = 0;
   long now;
   
   now = millis();
@@ -141,14 +143,38 @@ void temperatureTimerCallback (tTimer *pTimer)
   #define DELAY1 250  
   if (timer1 < now)
   {
+    #ifdef REPETIER_MTEMP
     timer1 = now + DELAY1;	
-    sersendf("MTEMP:%u %u %u %u\r\n", now, 
+    sersendf("MTEMP:%u %u\r\n", now, 
 	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
 	  // temp_get(HEATED_BED_0), temp_get_target(HEATED_BED_0) ,(uint8_t)(get_pid_val(HEATED_BED_0) * 2.55));	  
+	#endif
+
+	#ifdef DEBUG  
 	if (is_plan_queue_full) {
 	  sersendf("- Planning Queue is Full\r\n");
 	}
+	#endif
+	
+	// Sends an "ok" every 25 seconds if nothing is happening. Prevents rare
+	// case of buffer overrun by timers and host blockage
+
+    /*	
+	if (plan_queue_empty()) {
+	  if (queue_next_ok == 0) {
+	    queue_next_ok = now + 25000;
+	  } else {
+	    if (queue_next_ok < now) {
+  	      sersendf("\r\nok\r\n");
+		  queue_next_ok = 0;
+        }
+	  }
+	} else {
+	  queue_next_ok = 0;
+	}
+	*/
   }
+  
 }
 
 void check_boot_request (void)
@@ -164,12 +190,17 @@ void check_boot_request (void)
 void bootButtonCallback()
 {
   rtttl_play_axelf();
-  serial_writestr("Happy!\r\nok\r\n");
+  serial_writestr("ok\r\n");
+}
+
+int is_boot_button_pressed()
+{
+  return digital_read (4, (1<<29)) == 0;
 }
 
 void check_boot_button (void func())
 {
-  if (digital_read (4, (1<<29)) == 0)
+  if (is_boot_button_pressed())
   {
     func();
   }
@@ -188,49 +219,13 @@ void init(void)
   //TODO  current_position.F = startpoint.F = next_target.target.F =       config.search_feedrate_z;
 
   // say hi to host
-  serial_writestr("Start\r\nOK\r\n");
+  serial_writestr("Start\r\nok\r\n");
 }
 
-void init_timers()
-{
-  // Checks and refresh temperature extruder/heater pattern
-  // prints MTEMP
-  AddSlowTimer (&temperatureTimer, "Temperature Monitor");
-  StartSlowTimer (&temperatureTimer, 50, temperatureTimerCallback);
-  temperatureTimer.AutoReload = 1;
-
-  // One tick on extruder/heater pattern
-  AddSlowTimer (&extruderDriver, "Temperature Driver");
-  StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
-  extruderDriver.AutoReload = 1;
-}
-
-int app_main (void)
+void processCommandQueue()
 {    
-  eParseResult parse_result;
-
-  buzzer_init();
-  buzzer_play(1500, 100); /* low beep */
-  buzzer_wait();
-  buzzer_play(2500, 200); /* high beep */
-  
-  init();
-
-  // init timers
-  init_timers();
-  
-  read_config();
-
-  // grbl init
-  plan_init();      
-  st_init();    
-
-  // temperature init
-  temp_init(config.temp_sample_rate, config.temp_buffer_duration);    
+    eParseResult parse_result;
 	
-  // main loop
-  for (;;)
-  {
     // process characters from the serial port
     while (!serial_line_buf.seen_lf && (serial_rxchars() != 0) )
     {
@@ -310,7 +305,55 @@ int app_main (void)
 	  }	  	  
     }
 
+}
 
+void init_timers()
+{
+  // Checks and refresh temperature extruder/heater pattern
+  // prints MTEMP
+  AddSlowTimer (&temperatureTimer, "Temperature Monitor");
+  StartSlowTimer (&temperatureTimer, 50, temperatureTimerCallback);
+  temperatureTimer.AutoReload = 1;
+
+  // One tick on extruder/heater pattern
+  AddSlowTimer (&extruderDriver, "Temperature Driver");
+  StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
+  extruderDriver.AutoReload = 1;
+  
+  // One tick on extruder/heater pattern
+  /*
+  AddSlowTimer (&commandLineDriver, "Command Driver");
+  StartSlowTimer (&commandLineDriver, 5, commandLineCallback);
+  commandLineDriver.AutoReload = 1;
+  */
+  
+}
+
+int app_main (void)
+{    
+  init();
+
+  read_config();
+
+  // init timers
+  init_timers();
+
+  buzzer_init();
+
+  buzzer_play(1500, 100); /* low beep */  
+  buzzer_play(2500, 200); /* high beep */
+
+  // grbl init
+  plan_init();      
+  st_init();    
+
+  // temperature init
+  temp_init(config.temp_sample_rate, config.temp_buffer_duration);    
+	
+  // main loop
+  for (;;)
+  {    
+	processCommandQueue();
 #ifdef USE_BOOT_BUTTON
     // OPTION: enter bootloader on "Boot" button
     check_boot_request();

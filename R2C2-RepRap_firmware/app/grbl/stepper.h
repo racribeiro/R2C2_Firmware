@@ -28,7 +28,7 @@
 
 // from nuts_bolts.h:
 #define square(x) ((x)*(x))
-#define sleep_mode(x) do {} while (0)
+#define sleep_mode(x) do { } while (0)
 #define sei(x) 
 
 #define NUM_AXES 4

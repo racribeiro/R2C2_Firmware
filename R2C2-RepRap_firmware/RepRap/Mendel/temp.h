@@ -44,9 +44,11 @@
 #include "timer.h"
 #include "pid2.h"
 
-#define NUMBER_OF_SENSORS               2
+#define NUMBER_OF_SENSORS               3
 #define EXTRUDER_0                      0
 #define HEATED_BED_0                    1
+#define EXTRUDER_0_FAN                  2
+#define EXTRUDER_1_FAN                  3
 #define TEMP_ELEMENTS 100
 
 // extruder Driver Callback function
@@ -60,6 +62,9 @@ void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int l
 double temp_get_output_temp(uint8_t sensor_id);
 
 void set_heater_pattern(uint8_t sensor_number, float power);
+
+// set fan extruder power
+void extruder_fan_set(int16_t power);
 
 // set target temperature
 void temp_set(uint8_t sensor_number, int16_t t);

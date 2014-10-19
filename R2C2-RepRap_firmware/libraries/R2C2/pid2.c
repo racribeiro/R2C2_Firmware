@@ -26,7 +26,7 @@ void PID_PID(struct PID *p, int16_t* Input, double* Output, int16_t* Setpoint,
     p->mySetpoint = Setpoint;
 	p->inAuto = false;
 	
-	PID_SetOutputLimits(p, 0, 255);				//default output limit corresponds to 
+	PID_SetOutputLimits(p, 0, 0);				//default output limit corresponds to 
 												//the arduino pwm limits
 
     p->SampleTime = sampletime;							//default Controller Sample Time is 0.1 seconds
@@ -56,7 +56,7 @@ void PID_PID(struct PID *p, int16_t* Input, double* Output, int16_t* Setpoint,
  
 bool PID_Compute(struct PID *p)
 {
-   if(!p->inAuto) return false;
+   // if(!p->inAuto) return false;
    unsigned long now = millis();
    unsigned long timeChange = (now - p->lastTime);
    if(timeChange>=p->SampleTime)
@@ -85,10 +85,13 @@ bool PID_Compute(struct PID *p)
 	  
 	  double output = P + I - D;
 
-      // sersendf(" - final : %g = %g + %g + %g [%d]\r\n", output, P, I, D, p->ITerm);
+      //sersendf(" - final : %g = %g + %g + %g [%d]\r\n", output, P, I, D, p->ITerm);
+	  // sersendf(" - final : %g = ", output);
 	  
 	  if(output > p->outMax) output = p->outMax;
       else if(output < p->outMin) output = p->outMin;
+	  
+	  // sersendf(" - final : %g = %g / %g\r\n", output, (double)p->outMin, (double)p->outMax);
 	  
 	  *p->myOutput = output;
 	  
@@ -247,6 +250,7 @@ void PID_SetOutputLimits(struct PID *p, double Min, double Max)
    p->outMin = Min;
    p->outMax = Max;
  
+   /*
    if(p->inAuto)
    {
 	   if(*p->myOutput > p->outMax) *p->myOutput = p->outMax;
@@ -255,6 +259,7 @@ void PID_SetOutputLimits(struct PID *p, double Min, double Max)
 	   if(p->ITerm > p->outMax) p->ITerm= p->outMax;
 	   else if(p->ITerm < p->outMin) p->ITerm= p->outMin;
    }
+   */
 }
 
 /* SetMode(...)****************************************************************

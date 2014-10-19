@@ -1,0 +1,105 @@
+# Config file for RepRap machines
+# Tested on a RepRap Mendel with a Wade Extruder
+
+# Number of step for each milimeter
+steps_per_mm_x = 80.799
+steps_per_mm_y = 80.000
+steps_per_mm_z = 2400.000
+steps_per_mm_e = 850.000
+
+# Max feed rate of the machine
+# 5000mm/s --> 300000
+# 2000mm/s --> 120000
+# 1500mm/s --> 90000
+# 1000mm/s --> 60000
+# 500mm/s --> 30000
+# 150mm/s --> 9000
+
+
+# maximum_feedrate_x = 60000
+# maximum_feedrate_y = 60000
+# maximum_feedrate_z = 60
+# maximum_feedrate_e = 60000
+maximum_feedrate_x = 6000
+maximum_feedrate_y = 6000
+maximum_feedrate_z = 120
+maximum_feedrate_e = 6000
+
+# very slow speed for fine search
+search_feedrate_x = 240
+search_feedrate_y = 240
+search_feedrate_z = 120
+search_feedrate_e = 240
+
+# slow speed for initial search
+homing_feedrate_x = 2400
+homing_feedrate_y = 2400
+homing_feedrate_z = 120
+
+# acceleration settings
+# Good for normal prints: acceleration = 3500
+acceleration = 250.0
+junction_deviation = 0.050
+
+# direction of travel to find "home" endstop
+# +1 = move in positive, -1 = move negative
+home_direction_x = -1
+home_direction_y = -1
+home_direction_z = -1
+
+# the coordinates to set when home found
+home_pos_x = 0.000
+home_pos_y = 0.000
+home_pos_z = 0.000
+
+# set to 1 if there is a dump position, for priming extruder
+have_dump_pos = 0
+rest_pos_x = 0
+rest_pos_y = 0
+
+# set to 1 if there is a rest position, e.g. at end print, temperature wait
+have_rest_pos = 0
+rest_pos_x = 0
+rest_pos_y = 0
+
+# set to 1 if there is a wipe position
+have_wipe_pos = 0
+wipe_pos_x = 0
+wipe_pos_y = 0
+
+# size of print area 
+printing_vol_x = 175
+printing_vol_y = 165
+printing_vol_z = 120
+
+# options
+wait_on_temp = 0
+
+# PID
+p_factor_extruder_1 = 5
+i_factor_extruder_1 = 0
+d_factor_extruder_1 = 0
+
+min_extruder_1 = 46
+max_extruder_1 = 75
+
+# PID
+p_factor_heated_bed_0= 10
+i_factor_heated_bed_0= 20
+d_factor_heated_bed_0= 1
+
+min_heated_bed_0 = 15
+max_heated_bed_0 = 100
+
+safeguard_extruder_1 = 230
+safeguard_heated_bed_0 = 80
+temp_margin = 10
+
+# sample rate of temperature and pid calculation
+temp_sample_rate = 50
+
+# G02 & G03
+mm_per_arc_segment = 3
+arc_correction = 25
+circle_start_random = 1
+circle_start_angle = 0

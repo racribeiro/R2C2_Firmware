@@ -87,6 +87,13 @@ long millis(void);
 bool AddSlowTimer (tTimer *pTimer, char *name);
 void StartSlowTimer (tTimer *pTimer, uint32_t intervalMillis, tTimerCallback timerCallback);
 void StopSlowTimer (tTimer *pTimer);
+
+extern unsigned int on_timer_loop;
+
+void SlowTimer_Handler();
+
+#define WithinTimerLoop() (on_timer_loop != 0)
+
 #define IsSlowTimerExpired (pTimer)  ((pTimer)->Expired)
 
 #endif	/* _TIMER_H */

@@ -28,6 +28,7 @@
 */
 
 #include <string.h>
+#include <math.h>
 
 #include "lpc17xx_timer.h"
 #include "lpc17xx_clkpwr.h"
@@ -46,8 +47,8 @@
 
 static volatile long millis_ticks;
 
-static tTimer *SlowTimerHead;
-static tTimer *SlowTimerTail;
+static tTimer *SlowTimerHead = NULL;
+static tTimer *SlowTimerTail = NULL;
 
 
 static tHwTimer HwTimer [NUM_HARDWARE_TIMERS];
@@ -209,13 +210,12 @@ void SysTickTimer_Init(void)
   }
 }
 
-unsigned int can_execute_timer = 1;
+unsigned int on_timer_loop = 0;
 
 //  SysTick_Handler happens every 1/1000 second
 void SysTick_Handler(void)
 {
   static uint8_t counter = 0;
-  tTimer *pTimer;
 
   millis_ticks++;
 
@@ -227,6 +227,15 @@ void SysTick_Handler(void)
     counter = 0;
   }
   /***********************************************************************/
+  
+  SlowTimer_Handler();
+}
+
+void SlowTimer_Handler(void)
+{  
+  tTimer *pTimer;
+
+  on_timer_loop = 1;
   
   // process the slow timer list
   pTimer = SlowTimerHead;
@@ -253,6 +262,8 @@ void SysTick_Handler(void)
     }
     pTimer = pTimer->pNext;
   }
+  
+  on_timer_loop = 0;
   
   /***********************************************************************/
 }
@@ -319,5 +330,32 @@ void StopSlowTimer (tTimer *pTimer)
 {
   pTimer->Running = false;
 }
+
+/*
+#define max(A,B) ((A)>(B)?(A):(B))
+
+void run_timers()
+{
+  static long nextrun = 0;
+  
+  long started;
+  long ended;
+  long delta;
+  
+  started = millis();
+  if (started > nextrun) {
+    SlowTimer_Handler();
+	ended = millis();
+	
+	delta = ended - started;
+	if (delta > 1) {
+	  sersendf(" - running time: %u\r\n", delta);
+	}
+	
+	nextrun = max(started + 1, ended);
+  }
+}
+*/
+
 // END
 

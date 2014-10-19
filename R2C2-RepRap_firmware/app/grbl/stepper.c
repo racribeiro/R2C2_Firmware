@@ -305,7 +305,7 @@ void st_wake_up() {
   enableHwTimer(1);
   
   dac_scale = (33 * 60 * config.steps_per_mm_x * mm_per_sec_per_volt) / 1024/10;
-  sersendf("- st_wake_up()\r\n");
+  // sersendf("- st_wake_up()\r\n");
 #endif
 }
 
@@ -321,7 +321,7 @@ static void st_go_idle() {
 #else
   disableHwTimer(1);
   clear_all_step_pins();
-  sersendf("- st_go_idle()\r\n");
+  // sersendf("- st_go_idle()\r\n");
 #endif
 }
 
@@ -671,13 +671,18 @@ void st_init()
 void st_synchronize()
 {
   sersendf("- Synching Plan\r\n");
-  while(plan_get_current_block()) {     
-    sersendf("- Still on queue: %d\r\n", plan_queue_size());	
+  while(plan_get_current_block() && !is_boot_button_pressed()) {     
+    long now;
 	
-	long now;
+	now = millis(); 
+    sersendf("- Still on queue: %d - Temp: H:%u E1:%u\r\n", plan_queue_size(), temp_get(HEATED_BED_0), temp_get(EXTRUDER_0));	
+	sersendf("MTEMP:%u %u %u 0 %u\r\n", now, 
+	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
 	
-	now = millis() + 100;
-    while (now > millis()) {
+	now += 200;
+	
+	// Wait 200ms
+    while (now > millis()) {	  
 	}
   }    
 }

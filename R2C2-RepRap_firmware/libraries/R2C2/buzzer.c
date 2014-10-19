@@ -32,6 +32,8 @@
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_pwm.h"
 
+#include "buzzer.h"
+
 #include "timer.h"
 
 static tTimer buzzerTimer;
@@ -126,17 +128,22 @@ void buzzer_play (uint16_t frequency, uint16_t duration)
   buzzer_pwm_start();
   
   StartSlowTimer (&buzzerTimer, duration, buzzerTimerCallback); 
+  
+  buzzer_wait();
 }
 
 void buzzer_pause (uint16_t duration)
 {
   StartSlowTimer (&buzzerTimer, duration, buzzerTimerCallback); 
+  
+  buzzer_wait();
 }
 
 void buzzer_wait(void)
 {
   while (buzzerTimer.Running)
-      {};
+  {
+  };
   
 }
 

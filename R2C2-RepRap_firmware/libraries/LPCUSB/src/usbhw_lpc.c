@@ -396,7 +396,8 @@ int USBHwEPWrite(U8 bEP, U8 *pbBuf, int iLen)
  */
 int USBHwEPRead(U8 bEP, U8 *pbBuf, int iMaxLen)
 {
-	int i, idx;
+	unsigned int i;
+	int idx;
 	U32	dwData, dwLen;
 	
 	idx = EP2IDX(bEP);
