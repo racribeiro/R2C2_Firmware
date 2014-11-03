@@ -170,6 +170,7 @@ INCLUDES = $(APPLIBDIR)/CMSISv1p30_LPC17xx/inc \
 #   $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \	
 
 # $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
+# $(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
 
 SRC = \
 	$(wildcard $(APPLIBDIR)/LPCUSB/src/*.c) \

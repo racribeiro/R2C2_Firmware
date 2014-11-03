@@ -34,7 +34,7 @@
 #include <stdbool.h>
 #include "gcode_parse.h"
 #include "ff.h"
-
+#include "debug.h"
 
 // for SD functions
 extern FIL       file;
@@ -48,6 +48,8 @@ extern void sd_close (FIL *pFile);
 extern bool sd_write_to_file(char *pStr, unsigned bytes_to_write);
 
 extern bool sd_read_file (tLineBuffer *pLine);
+
+void read_gcode_file(char *filename);
 
 // when we have a whole line, feed it to this
 eParseResult process_gcode_command(void);

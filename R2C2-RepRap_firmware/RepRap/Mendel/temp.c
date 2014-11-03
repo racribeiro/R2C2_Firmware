@@ -136,7 +136,7 @@ void temp_reset(int sensor_id)
 
 void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int logduration)
 {  
-   sersendf("- init - %u\r\n", sensor_id); /* for RepRap software */
+   debug("- init temp sensor - %u\r\n", sensor_id); /* for RepRap software */
 
    // last_extruder_state[sensor_id] = 0;
    last_extruder_state[sensor_id] = LOW;
@@ -170,9 +170,27 @@ void temp_init(unsigned int sampletime, unsigned int logduration)
   }
 }
 
+/* Speed up fan for 200ms before setting up a low value */
+
+int16_t _cached_power = 0;
+
+void fanSetCallback (__attribute__((unused)) tTimer *pTimer)
+{
+  debug("- fan power final set %d\r\n", _cached_power);
+  temp_set(EXTRUDER_0_FAN, (int) (_cached_power / 2.55)); 
+}
+
 void extruder_fan_set(int16_t power)
 {
-  temp_set(EXTRUDER_0_FAN, (int) (power / 2.55));
+  debug("- Setting fan power %d\r\n", power);
+  if ((power > 0) && (power < 20)) {
+    _cached_power = power;
+    temp_set(EXTRUDER_0_FAN, 100); 	
+    StartSlowTimer (&fanTimer, 2000, fanSetCallback);  
+	debug("- fan power %d hooked\r\n", power);
+  } else {
+    temp_set(EXTRUDER_0_FAN, (int) (power / 2.55)); 
+  }
 }
 
 void temp_set(uint8_t sensor_number,int16_t t)

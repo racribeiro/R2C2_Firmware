@@ -76,12 +76,48 @@ const double auto_reverse_feed_rate = 18000;
 double auto_prime_factor = 640;
 double auto_reverse_factor = 640;
 
+#define MAX_TARGET_STACK 20
+tTarget targetStack[MAX_TARGET_STACK];
+uint8_t targetStackPos = 0;
+
 #define __SAFE_TRAVEL__
 
 void debug_tTarget(tTarget *t)
 {
-  sersendf("X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
+  sersendf(" - X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
 }
+
+void read_gcode_file(char *filename)
+{
+  FRESULT res;    /* FatFs function common result code */
+  char *pLine;
+  
+  debug("- Opening %s\r\n", filename);
+  res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ);
+  if (res == FR_OK)
+    {
+      tLineBuffer line_buf;
+
+      pLine = f_gets(line_buf.data, sizeof(line_buf.data), &file); 
+      while (pLine)
+      {
+        line_buf.len = strlen(pLine);
+		debug("- Parsing [%s] %d\r\n", &line_buf.data, line_buf.len);
+        gcode_parse_line (&line_buf);
+		debug("- executed [%s]\r\n");
+        pLine = f_gets(line_buf.data, sizeof(line_buf.data), &file);
+      }
+      
+      res = f_close(&file);
+      if (res)
+        debug("- Error closing %s\r\n", filename);
+      else
+	    debug("- %s processed\r\n", filename);
+    } else {
+	  debug("- Error opening %s\r\n");
+	}
+}
+
 
 static void enqueue_moved (tTarget *pTarget)
 {
@@ -301,22 +337,26 @@ FRESULT sd_list_dir_sub (char *path)
   DIR dir;
   int i;
   char *fn;
+  
+  inibhit_slow_timer = 1;
+  
 #if _USE_LFN
   static char lfn[_MAX_LFN * (_DF1S ? 2 : 1) + 1];
   fno.lfname = lfn;
   fno.lfsize = sizeof(lfn);
 #endif
 
-// sersendf("opendir %s\n\r", path);
+  debug("- opendir [%s]\n\r", path);
   res = f_opendir(&dir, path);
-// sersendf(" - opendir = %d\n\r", res);  
+  debug("- opendir = %d\n\r", res);  
   if (res == FR_OK)
   {
     i = strlen(path);
     for (;;)
     {
+	  debug(".\n\r");  
       res = f_readdir(&dir, &fno);
-// sersendf(" - readdir = %d\n\r", res);  	  
+      debug(" - readdir = %d\n\r", res);  	  
       if (res != FR_OK || fno.fname[0] == 0) break;
       if (fno.fname[0] == '.') continue;
 #if _USE_LFN
@@ -345,16 +385,17 @@ FRESULT sd_list_dir_sub (char *path)
     }	
   }
 
+  inibhit_slow_timer = 0;
+  
   return res;
 }
 
+char search_path[256];
+
 void sd_list_dir (void)
 {
-  char path[256];
-
-  strcpy (path, "");
-
-  sd_list_dir_sub(path);
+  search_path[0] = '\0';
+  sd_list_dir_sub(search_path);
 }
 
 unsigned sd_open(FIL *pFile, char *path, uint8_t flags)
@@ -382,10 +423,13 @@ unsigned sd_open(FIL *pFile, char *path, uint8_t flags)
 
   FRESULT res;
 
+  debug(" opening file!");
   res = f_open (pFile, path, flags);
+  debug(" opened file!");
 
   if (res == FR_OK)
   {
+    debug(" file read!");
     return 1;
   }
   else
@@ -661,13 +705,17 @@ void prepare_circle_movement(tTarget *next_targetd, double radius, int motion_mo
  *                                                                           *
  ****************************************************************************/
 
+double feed_rate_extruder_multiplier = 1;
+double feed_rate_movement_multiplier = 1;
+
+	
 eParseResult process_gcode_command()
 {
   double backup_f;
   uint8_t axisSelected = 0;
   eParseResult result = PR_OK;
   bool reply_sent = false; // 'ok' already sent?
-
+  
   tTarget next_targetd = startpoint;
 
   // convert relative to absolute
@@ -678,7 +726,7 @@ eParseResult process_gcode_command()
     next_targetd.z = startpoint.z + next_target.target.z;
     next_targetd.e = startpoint.e + next_target.target.e;
     if (next_target.seen_F)
-      next_targetd.feed_rate = next_target.target.feed_rate;
+      next_targetd.feed_rate = next_target.target.feed_rate * feed_rate_movement_multiplier;
   }
   else
   {
@@ -692,7 +740,7 @@ eParseResult process_gcode_command()
     if (next_target.seen_E)
       next_targetd.e = next_target.target.e;
     if (next_target.seen_F)
-      next_targetd.feed_rate = next_target.target.feed_rate;
+      next_targetd.feed_rate = next_target.target.feed_rate * feed_rate_movement_multiplier;
   }
 
   //  sersendf(" X:%ld Y:%ld Z:%ld E:%ld F:%ld\r\n", (int32_t)next_target.target.X, (int32_t)next_target.target.Y, (int32_t)next_target.target.Z, (int32_t)next_target.target.E, (uint32_t)next_target.target.F);
@@ -708,10 +756,10 @@ eParseResult process_gcode_command()
     // G0 - rapid, unsynchronised motion
     // since it would be a major hassle to force the dda to not synchronise, just provide a fast feedrate and hope it's close enough to what host expects
       case 0:
-      backup_f = next_targetd.feed_rate;
-      next_targetd.feed_rate = config.maximum_feedrate_x * 2;
-      enqueue_moved (&next_targetd);
-      next_targetd.feed_rate = backup_f;
+        backup_f = next_targetd.feed_rate;
+        next_targetd.feed_rate = config.maximum_feedrate_x * 2;
+        enqueue_moved (&next_targetd);
+        next_targetd.feed_rate = backup_f;
       break;
 
       // G1 - synchronised motion
@@ -771,7 +819,7 @@ eParseResult process_gcode_command()
 
       //	G30 - go home via point
       case 30:
-      enqueue_moved(&next_targetd);
+        enqueue_moved(&next_targetd);
       // no break here, G30 is move and then go home
 
       //	G28 - go home
@@ -828,7 +876,7 @@ eParseResult process_gcode_command()
 
       // G91 - relative positioning
       case 91:
-      next_target.option_relative = 1;
+        next_target.option_relative = 1;
       break;
 
       //	G92 - set current position
@@ -879,9 +927,9 @@ eParseResult process_gcode_command()
 
       // unknown gcode: spit an error
       default:
-      sersendf("E: Bad G-code ");
-      serwrite_uint8(next_target.G);
-      sersendf("\r\n");	  
+        sersendf("E: Bad G-code - G");
+        serwrite_uint8(next_target.G);
+        sersendf("\r\n");	  
     }
   }
   else if (next_target.seen_M)
@@ -904,16 +952,16 @@ eParseResult process_gcode_command()
       break;
 
       case 21: // M21 - init SD card
-      sd_printing = false;
-      sd_initialise();
-      // NB : assume that the disk has been mounted in config.c
-      // TODO: mount volume here and change config.c
+        sd_printing = false;
+        sd_initialise();
+        // NB : assume that the disk has been mounted in config.c
+        // TODO: mount volume here and change config.c
       break;
 
       case 22: // M22 - release SD card
-      sd_printing = false;
-      sd_active = false;
-      // TODO: should unmount volume
+        sd_printing = false;
+        sd_active = false;
+        // TODO: should unmount volume
       break;
 
       case 23: // M23 <filename> - Select file
@@ -1071,7 +1119,7 @@ eParseResult process_gcode_command()
       case 108:
       if (next_target.seen_S)
       {
-        extruder_1_speed = (double)next_target.S / 10.0;
+        extruder_1_speed = (double)next_target.S / 10.0 * feed_rate_extruder_multiplier;
       }
       break;
 
@@ -1184,26 +1232,26 @@ eParseResult process_gcode_command()
 
       // M132- heater D factor
       case 132:
-      if (next_target.seen_S)
-        config.d_factor_extruder_1 = next_target.S  / 1000.0;
+        if (next_target.seen_S)
+          config.d_factor_extruder_1 = next_target.S  / 1000.0;
 		
-	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);		
+	    temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);		
       break;
 
       // M133- heated bed P=X, I=Y, D=Z, MIN=I, MAX=J
       case 133:
-      if (next_target.seen_X)
-        config.p_factor_heated_bed_0 = next_target.target.x;
-      if (next_target.seen_Y)
-        config.i_factor_heated_bed_0 = next_target.target.y;
-      if (next_target.seen_Z)
-        config.d_factor_heated_bed_0 = next_target.target.z;		
-      if (next_target.seen_I)
-        config.max_heated_bed_0 = next_target.I;
-      if (next_target.seen_J)
-        config.min_heated_bed_0 = next_target.J;		
+        if (next_target.seen_X)
+          config.p_factor_heated_bed_0 = next_target.target.x;
+        if (next_target.seen_Y)
+          config.i_factor_heated_bed_0 = next_target.target.y;
+        if (next_target.seen_Z)
+          config.d_factor_heated_bed_0 = next_target.target.z;		
+        if (next_target.seen_I)
+          config.max_heated_bed_0 = next_target.I;
+        if (next_target.seen_J)
+          config.min_heated_bed_0 = next_target.J;		
 		
-	  temp_init_sensor(HEATED_BED_0, config.temp_sample_rate, config.temp_buffer_duration);
+	    temp_init_sensor(HEATED_BED_0, config.temp_sample_rate, config.temp_buffer_duration);
 	
       break;
 
@@ -1227,21 +1275,21 @@ eParseResult process_gcode_command()
 
       // M190- power on
       case 190:
-      power_on();
-      x_enable();
-      y_enable();
-      z_enable();
-      e_enable();
-      steptimeout = 0;
+        power_on();
+        x_enable();
+        y_enable();
+        z_enable();
+        e_enable();
+        steptimeout = 0;
       break;
 
       // M191- power off
       case 191:
-      x_disable();
-      y_disable();
-      z_disable();
-      e_disable();
-      power_off();
+        x_disable();
+        y_disable();
+        z_disable();
+        e_disable();
+        power_off();
       break;
 
       // M200 - set steps per mm
@@ -1330,6 +1378,25 @@ eParseResult process_gcode_command()
       }
       break;
 
+    case 220:
+      if (next_target.seen_S)
+      {        
+	    next_target.target.feed_rate = next_target.target.feed_rate / feed_rate_movement_multiplier;
+		feed_rate_movement_multiplier = (double)next_target.S / 100.0;
+		next_target.target.feed_rate = next_target.target.feed_rate * feed_rate_movement_multiplier;
+      }
+      break;
+
+    case 221:
+      if (next_target.seen_S)
+      {
+	    extruder_1_speed = extruder_1_speed / feed_rate_extruder_multiplier;
+        feed_rate_extruder_multiplier = (double)next_target.S / 100.0;
+		extruder_1_speed = extruder_1_speed * feed_rate_extruder_multiplier;
+
+      }
+      break;
+	  
       // M227 - Enable Auto-prime/reverse (steps)
       // P: prime on start (steps)
       // S: reverse on stop (steps)
@@ -1389,9 +1456,9 @@ eParseResult process_gcode_command()
 
       // Plays Music from command line:
       // Usage:
-      //   M302 "music" P"tempo"
+      
       // Example:
-      //   M302 D4b3a3g3 P600
+      
       //
       case 302:
       {
@@ -1587,13 +1654,35 @@ eParseResult process_gcode_command()
 		sersendf("debug F current_power = %d\r\n", temp_get(EXTRUDER_0_FAN));
 		sersendf("debug F target_power = %d\r\n", temp_get_target(EXTRUDER_0_FAN));		
 	  break;
-		
-		
+	  
+	  case 710:
+	    uart_sendf("%s\r\n", next_target.filename);
+	  break;
+	  
+	  case 720:
+	    uart_sendf("Stack Height: %d\r\n", targetStackPos);
+	  break;
+	  
+	  case 721:
+	    uart_sendf("Push\r\n");
+		enqueue_wait();
+		if (targetStackPos < MAX_TARGET_STACK) {		          
+		  memcpy(&targetStack[targetStackPos++], &startpoint, sizeof(startpoint));
+		}
+	  break;
+	  
+	  case 722:
+	    uart_sendf("Pop\r\n");
+		if (targetStackPos > 0) {		  
+		  enqueue_moved(&targetStack[--targetStackPos]);
+		}
+	  break;
+				
       // unknown mcode: spit an error
       default:
-      serial_writestr("E: Bad M-code ");
-      serwrite_uint8(next_target.M);
-      serial_writestr("\r\n");
+        serial_writestr("E: Bad M-code - M");
+        serwrite_uint8(next_target.M);
+        serial_writestr("\r\n");
     }
   }
 

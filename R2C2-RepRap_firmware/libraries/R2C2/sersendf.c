@@ -35,7 +35,13 @@
 
 char   str_ox[] = "0x";
 
-void sersendf(char *format, ...) {
+void quiet_sersendf(char *format, ...) {
+  va_list args;
+  va_start(args, format);
+}
+
+void sersendf(char *format, ...) // ((format (printf, 1, 2)));
+{
         va_list args;
         va_start(args, format);
 

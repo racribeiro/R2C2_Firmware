@@ -447,7 +447,7 @@ void UART_ConfigStructInit(UART_CFG_Type *UART_InitStruct)
 	UART_InitStruct->Stopbits = UART_STOPBIT_1;
 }
 
-/* UART Send/Recieve functions -------------------------------------------------*/
+/* UART Send/Receive functions -------------------------------------------------*/
 /*********************************************************************//**
  * @brief		Transmit a single data through UART peripheral
  * @param[in]	UARTx	UART peripheral selected, should be:

@@ -33,6 +33,7 @@
 
 #include        <stdarg.h>
 
+void quiet_sersendf(char *format, ...); // ((format (printf, 1, 2)));
 void sersendf(char *format, ...); // ((format (printf, 1, 2)));
 
 #endif	/* _SERSENDF_H */

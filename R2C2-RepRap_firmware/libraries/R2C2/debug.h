@@ -34,8 +34,10 @@
 #include "uart.h"
 
 // select one of sersendf (USB) or UART function for debug 
-#define debug sersendf
+// #define debug sersendf
+// #define debug quiet_sersendf
+#define debug uart_sendf
 
-//#define debug uart_writestr
+// #define debug uart_writestr
 
 #endif	/* _DEBUG_H */

@@ -77,8 +77,8 @@ uint8_t isHwTimerEnabled(uint16_t timerNum);
 void setHwTimerMatch (uint16_t timerNum, uint16_t matchReg, uint32_t interval);
 
 void SysTickTimer_Init(void);
-void delay(int delay);
-void delay_ms(int delay);
+void delay_s(int delay);
+void delay_ms(long delay);
 void delayMicrosecondsInterruptible(int us);
 #define	delay_us(d) delayMicrosecondsInterruptible(d)
 long millis(void);
@@ -89,6 +89,7 @@ void StartSlowTimer (tTimer *pTimer, uint32_t intervalMillis, tTimerCallback tim
 void StopSlowTimer (tTimer *pTimer);
 
 extern unsigned int on_timer_loop;
+extern unsigned int inibhit_slow_timer;
 
 void SlowTimer_Handler();
 

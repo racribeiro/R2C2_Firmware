@@ -43,6 +43,7 @@
 #include "stepper.h"
 #include "timer.h"
 #include "pid2.h"
+#include "debug.h"
 
 #define NUMBER_OF_SENSORS               3
 #define EXTRUDER_0                      0
@@ -50,6 +51,8 @@
 #define EXTRUDER_0_FAN                  2
 #define EXTRUDER_1_FAN                  3
 #define TEMP_ELEMENTS 100
+
+extern tTimer fanTimer;
 
 // extruder Driver Callback function
 void extruderDriverCallback();

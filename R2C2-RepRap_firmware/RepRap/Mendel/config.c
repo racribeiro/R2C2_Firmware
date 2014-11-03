@@ -39,6 +39,7 @@
 #include "ff.h"
 #include "debug.h"
 #include "gcode_parse.h"
+#include "gcode_process.h"
 #include "uart.h"
 
 
@@ -157,9 +158,9 @@ tConfigItem config_lookup [] =
 #define NUM_TOKENS (sizeof(config_lookup)/sizeof(tConfigItem))
 
 
-uint16_t read_u16 (FIL *file, char *line)
+uint16_t read_u16 (FIL *_file, char *line)
 {
-  f_gets(line, 80, file); /* read one line */
+  f_gets(line, 80, _file); /* read one line */
   char *p_pos = strchr(line, '='); /* find the '=' position */
 
   if (p_pos != NULL)
@@ -340,7 +341,7 @@ void read_config (void)
   /* access to "config.txt" file on SDCard */
 
   FATFS fs;       /* Work area (file system object) for logical drive */
-  FIL file;       /* file object */
+  FIL _file;       /* file object */
   FRESULT res;    /* FatFs function common result code */
 
   /* Register a work area for logical drive 0 */
@@ -349,14 +350,14 @@ void read_config (void)
     debug("Err mount fs\n");
 
   /* Open config.txt file */
-  res = f_open(&file, "config.txt", FA_OPEN_EXISTING | FA_READ);
+  res = f_open(&_file, "config.txt", FA_OPEN_EXISTING | FA_READ);
   if (res)
     debug("File config.txt not found\n");
   else
     {
       bool    found;
 
-      pLine = f_gets(line, sizeof(line), &file); /* read one line */
+      pLine = f_gets(line, sizeof(line), &_file); /* read one line */
 
       while (pLine)
         {
@@ -408,45 +409,22 @@ void read_config (void)
                 sersendf ("Unknown config: %s\r\n", pToken);
             }
 
-          pLine = f_gets(line, sizeof(line), &file); /* read next line */
+          pLine = f_gets(line, sizeof(line), &_file); /* read next line */
         }
 
       /* Close config.txt file */
-      res = f_close(&file);
+      res = f_close(&_file);
       if (res)
         debug("Error closing config.txt\n");
     }
 
-
-  //
-  //read_gcode_file ("autoexec.g");
-
-  res = f_open(&file, "autoexec.g", FA_OPEN_EXISTING | FA_READ);
-  if (res == FR_OK)
-    {
-      tLineBuffer line_buf;
-
-      pLine = f_gets(line_buf.data, sizeof(line_buf.data), &file); /* read one line */
-      while (pLine)
-        {
-          line_buf.len = strlen(pLine);
-          gcode_parse_line (&line_buf);
-          pLine = f_gets(line_buf.data, sizeof(line_buf.data), &file); /* read next line */
-        }
-
-      /* Close file */
-      res = f_close(&file);
-      if (res)
-        debug("Error closing autoexec.g\n");
-    }
-
-  // 
+  
+  read_gcode_file ("autoexec.g");
 
   /* Initialize using values read from "config.txt" file */
   gcode_parse_init();
 
 }
-
 
 void write_config (void)
 {

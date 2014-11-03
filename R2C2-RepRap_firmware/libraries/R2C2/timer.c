@@ -211,15 +211,17 @@ void SysTickTimer_Init(void)
 }
 
 unsigned int on_timer_loop = 0;
+unsigned int inibhit_slow_timer = 0;
 
 //  SysTick_Handler happens every 1/1000 second
 void SysTick_Handler(void)
 {
   static uint8_t counter = 0;
-
+  
+  
   millis_ticks++;
 
-  /* 100ms tick for SDCard ***********************************************/
+  /* 100ms tick for SDCard ***********************************************/  
   counter++;
   if (counter > 99)
   {
@@ -228,7 +230,8 @@ void SysTick_Handler(void)
   }
   /***********************************************************************/
   
-  SlowTimer_Handler();
+  if (!inibhit_slow_timer)
+    SlowTimer_Handler();
 }
 
 void SlowTimer_Handler(void)
@@ -273,12 +276,17 @@ long millis(void)
   return millis_ticks;
 }
 
-void delay_ms(int ms)
+void delay_s(int s)
 {
-  int start = millis();
+  //delay_ms((long)s * 1000);
+}
 
-  while (millis() - start <= ms)
-    ;
+void delay_ms(long ms)
+{
+  long start = millis();
+
+  while (millis() - start <= ms) {
+  };
 }
 
 void delayMicrosecondsInterruptible(int us)
@@ -288,7 +296,7 @@ void delayMicrosecondsInterruptible(int us)
 }
 
 // delay( microseconds )
-void delay(int d){
+void _delay(int d){
   while (d > 65535) {
           delayMicrosecondsInterruptible(65534);
           d -= 65535;

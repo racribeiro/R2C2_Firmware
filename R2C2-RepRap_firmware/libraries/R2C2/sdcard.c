@@ -37,6 +37,7 @@
 #include "diskio.h"
 #include "spi.h"
 #include "sersendf.h"
+#include "debug.h"
 
 #define xmit_spi(dat)  spi_rw(dat)
 
@@ -148,17 +149,33 @@ static Bool rcvr_datablock (
 {
 	BYTE token;
 
-
+    debug("rcvr_datablock entering loop\r\n");
+	delay_s(1);
 	Timer1 = 10;
-	do {							/* Wait for data packet in timeout of 100ms */
+	do {							/* Wait for data packet in timeout of 100ms */	  	  
 		token = rcvr_spi();
 	} while ((token == 0xFF) && Timer1);
-	if(token != 0xFE) return FALSE;	/* If not valid data token, return with error */
+	
+	debug("rcvr_datablock entering loop done\r\n");
+	
+	if(token != 0xFE) {
+	  debug("rcvr_datablock false\r\n");
+	  delay_s(1);
+	  return FALSE;	/* If not valid data token, return with error */
+	}
 
+    debug("rcvr_datablock true\r\n");
+	delay_s(1);
 	spi_rcvr_block( buff, btr );
 
+    debug("rcvr_datablock read done\r\n");
+	delay_s(1);
+	
 	rcvr_spi();						/* Discard CRC */
 	rcvr_spi();
+
+    debug("rcvr_datablock read returning\r\n");
+	delay_s(1);
 
 	return TRUE;					/* Return with success */
 }
@@ -308,30 +325,46 @@ DRESULT MMC_disk_read(
 	BYTE count			/* Sector count (1..255) */
 )
 {
+debug("- MMC_disk_read 1\r\n");
 	if (!count) return RES_PARERR;
 	if (Stat & STA_NOINIT) return RES_NOTRDY;
 
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert to byte address if needed */
 
+debug("- MMC_disk_read 2\r\n");
+delay_s(1);
 	if (count == 1) {	/* Single block read */
 		if (send_cmd(CMD17, sector) == 0)	{ /* READ_SINGLE_BLOCK */
+debug("- MMC_disk_read 2.1\r\n");
+delay_s(1);		
 			if (rcvr_datablock(buff, 512)) {
 				count = 0;
 			}
 		}
 	}
 	else {				/* Multiple block read */
+debug("- MMC_disk_read 2.2\r\n");
+delay_s(1);			
 		if (send_cmd(CMD18, sector) == 0) {	/* READ_MULTIPLE_BLOCK */
 			do {
+debug("- MMC_disk_read 2.3\r\n");
+delay_s(1);					
 				if (!rcvr_datablock(buff, 512)) {
 					break;
 				}
 				buff += 512;
 			} while (--count);
+debug("- MMC_disk_read 2.4\r\n");
+delay_s(1);					
 			send_cmd(CMD12, 0);				/* STOP_TRANSMISSION */
 		}
 	}
+debug("- MMC_disk_read 2.4 - relase\r\n");
+delay_s(1);			
+	
 	release_spi();
+
+debug("- MMC_disk_read 3 - done \r\n", count);
 
 	return count ? RES_ERROR : RES_OK;
 }

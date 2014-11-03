@@ -670,18 +670,21 @@ void st_init()
 // Block until all buffered steps are executed
 void st_synchronize()
 {
-  sersendf("- Synching Plan\r\n");
+  debug("- Synching Plan\r\n");
   while(plan_get_current_block() && !is_boot_button_pressed()) {     
     long now;
 	
 	now = millis(); 
-    sersendf("- Still on queue: %d - Temp: H:%u E1:%u\r\n", plan_queue_size(), temp_get(HEATED_BED_0), temp_get(EXTRUDER_0));	
-	sersendf("MTEMP:%u %u %u 0 %u\r\n", now, 
+    sersendf("- Still on queue: %d - Temp: H:%u E1:%u\r\n", plan_queue_size(), temp_get(HEATED_BED_0), temp_get(EXTRUDER_0));
+	/*
+	sersendf(" - MTEMP:%u %u.0 %u.0 0.0 %u.0\r\n", now, 
 	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));
+	*/
+	sersendf("MTEMP:%u %u %u %u\r\n", now, 
+	  temp_get(EXTRUDER_0), temp_get_target(EXTRUDER_0) ,(uint8_t)(get_pid_val(EXTRUDER_0) * 2.55));	
 	
-	now += 200;
-	
-	// Wait 200ms
+	// Wait 250ms
+	now += 250;	
     while (now > millis()) {	  
 	}
   }    

@@ -190,7 +190,7 @@ eParseResult gcode_parse_line (tLineBuffer *pLine)
   eParseResult result = PR_OK;
 
   for (j=0; j < pLine->len; j++)
-  {
+  {    
     gcode_parse_char (pLine->data [j]);
   }
 
@@ -349,7 +349,7 @@ void gcode_parse_char(uint8_t c)
         // this is a bit hacky since string parameters don't fit in general G code syntax
         // NB: filename MUST start with a letter and MUST NOT contain spaces
         // letters will also be converted to uppercase
-        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 302))
+        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 302) || next_target.M == 710)
         {
           next_target.getting_string = 1;
         }

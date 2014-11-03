@@ -777,8 +777,14 @@ void plan_set_current_position(tTarget *new_position)
   startpoint = *new_position;
   position[X_AXIS] = lround(new_position->x*(double)config.steps_per_mm_x);
   position[Y_AXIS] = lround(new_position->y*(double)config.steps_per_mm_y);
-  position[Z_AXIS] = lround(new_position->z*(double)config.steps_per_mm_z);    
+  position[Z_AXIS] = (int32_t) (new_position->z*(double)config.steps_per_mm_z);    
   position[E_AXIS] = lround(new_position->e*(double)config.steps_per_mm_e);    
+  
+  /*
+  sersendf(" - pos: x:%g y:%g z:%g : x:%ld y:%ld z:%ld\r\n", 
+    new_position->x, new_position->y, new_position->z,
+    position[X_AXIS], position[Y_AXIS], position[Z_AXIS]);
+  */
   
   previous_nominal_speed = 0.0; // Resets planner junction speeds. Assumes start from rest.
   clear_vector_double(previous_unit_vec);

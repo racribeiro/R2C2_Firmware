@@ -53,9 +53,11 @@
 tTimer temperatureTimer;
 tTimer extruderDriver;
 tTimer commandLineDriver;
+tTimer fanTimer;
 
 tLineBuffer serial_line_buf;
 tLineBuffer sd_line_buf;
+tLineBuffer uart_line_buf;
 
 long timer1 = 0;  
 long timer2 = 0;
@@ -211,7 +213,11 @@ void init(void)
 {
   // set up inputs and outputs
   io_init();
-
+  
+  // set up inputs and outputs
+  uart_init(57600);    
+  uart_writestr("Hello!\r\n");
+  
   /* Initialize Gcode parse variables */
   gcode_parse_init();
 
@@ -219,7 +225,7 @@ void init(void)
   //TODO  current_position.F = startpoint.F = next_target.target.F =       config.search_feedrate_z;
 
   // say hi to host
-  serial_writestr("Start\r\nok\r\n");
+  sersendf("Start\r\nok\r\n");
 }
 
 void processCommandQueue()
@@ -243,7 +249,30 @@ void processCommandQueue()
       }      
     }
 
-    // process SD file if no serial command pending
+    while(uart_data_available()) {
+	  uart_sendf(" in\r\n");
+      unsigned char c = uart_receive();
+      
+      if (uart_line_buf.len < MAX_LINE)
+        uart_line_buf.data [uart_line_buf.len++] = c;
+
+      if ((c==10) || (c==13))
+      {
+        if (uart_line_buf.len > 1)
+          uart_line_buf.seen_lf = 1;
+        else
+          uart_line_buf.len = 0;
+      }
+	  
+	  if (uart_line_buf.len > 0) {
+	    uart_sendf("got something [%s]\r\n", uart_line_buf.data);
+	    if (strcmp(uart_line_buf.data, "HELLO")) {
+		  uart_writestr("Hello!");
+		}
+	  }
+	}
+	
+	// process SD file if no serial command pending
     if (!sd_line_buf.seen_lf && sd_printing)
     {
       if (sd_read_file (&sd_line_buf))
@@ -253,7 +282,7 @@ void processCommandQueue()
       else
       {
         sd_printing = false;
-        serial_writestr ("Done printing file\r\n");
+        debug("Done printing file\r\n");
       }
     }
 
@@ -320,7 +349,10 @@ void init_timers()
   StartSlowTimer (&extruderDriver, 2, extruderDriverCallback);
   extruderDriver.AutoReload = 1;
   
-  // One tick on extruder/heater pattern
+  // One callback function to fan delay timer
+  AddSlowTimer (&fanTimer, "Speeding up fan");
+  fanTimer.AutoReload = 0;
+    
   /*
   AddSlowTimer (&commandLineDriver, "Command Driver");
   StartSlowTimer (&commandLineDriver, 5, commandLineCallback);
@@ -330,15 +362,24 @@ void init_timers()
 }
 
 int app_main (void)
-{    
+{ 
+  int count = 0;   
   init();
 
-  read_config();
+#ifdef DEBUG_ON_BOOT
+  while (!is_boot_button_pressed()) {};
+
+  while (count < 10) {
+  count++;
+  debug(" - count : %d\r\n", count); 
+#endif  
 
   // init timers
   init_timers();
-
   buzzer_init();
+
+  // Only readconfigs after timers and buzzer initiated
+  read_config();
 
   buzzer_play(1500, 100); /* low beep */  
   buzzer_play(2500, 200); /* high beep */
@@ -351,7 +392,11 @@ int app_main (void)
   temp_init(config.temp_sample_rate, config.temp_buffer_duration);    
 	
   // main loop
-  for (;;)
+#ifdef DEBUG_ON_BOOT    
+  while (!is_boot_button_pressed())
+#else
+  for(;;)
+#endif  
   {    
 	processCommandQueue();
 #ifdef USE_BOOT_BUTTON
@@ -362,4 +407,10 @@ int app_main (void)
 #endif
 
   }
+  
+#ifdef DEBUG_ON_BOOT  
+  }
+#endif  
+  
+  return count;
 }

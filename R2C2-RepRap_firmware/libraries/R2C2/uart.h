@@ -30,11 +30,33 @@
 #ifndef	_UART_H
 #define	_UART_H
 
-void uart_init(void);
+//Debug UART can be 0 or 3
+
+// Debug UART 3 - UART hardware (boarding facing up, top right "uart" connector. 
+// From right to left: gnd, empty, emtpy, rx, tx, empty)
+#define DBG_UART_NUM 3
+
+#if DBG_UART_NUM == 0
+#define DBG_UART      LPC_UART0
+#endif
+
+#if DBG_UART_NUM == 3 
+#define DBG_UART      LPC_UART3
+#endif
+
+void uart_init(int);
 char uart_data_available(void);
 char uart_receive(void);
 void uart_send(char byte);
 void uart_writestr(char *data);
+void uart_sendf(char *format, ...);
+
+// functions for sending decimal
+#define	uart_writechar(v)		uart_send(v)
+#define	uart_uint8(v)		uart_uint32(v)
+#define	uart_int8(v)		uart_int32(v)
+#define	uart_uint16(v)	    uart_int32(v)
+#define	uart_int16(v)		uart_int32(v)
 
 // #define serial_writechar(x) uart_send(x)
 

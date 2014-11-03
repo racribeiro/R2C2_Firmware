@@ -27,15 +27,16 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include        <stdarg.h>
+
 #include "uart.h"
 #include "lpc17xx_uart.h"
 #include "lpc17xx_pinsel.h"
+#include "lpc17xx_gpio.h"
 
-//Debug UART can be 0 or 3
-#define DBG_UART_NUM  0 
-#define DBG_UART      LPC_UART3
+char   uart_str_ox[] = "0x";
 
-void uart_init(void)
+void uart_init(int baud_rate)
 {
 	// UART Configuration structure variable
 	UART_CFG_Type UARTConfigStruct;
@@ -53,10 +54,13 @@ void uart_init(void)
 #if DBG_UART_NUM == 3	
 	PinCfg.Funcnum = PINSEL_FUNC_3;
 	PinCfg.Portnum = 4;
-	PinCfg.Pinnum = 28;
+	PinCfg.Pinnum = 28; // TX
 	PINSEL_ConfigPin(&PinCfg);
-	PinCfg.Pinnum = 29;
+	PinCfg.Pinnum = 29; // RX
 	PINSEL_ConfigPin(&PinCfg);
+	
+    GPIO_SetDir(4, ((uint32_t)1 << 28), 1); // OUTPUT = 1
+	GPIO_SetDir(4, ((uint32_t)1 << 29), 0); // INPUT = 1
 #else
 	PinCfg.Funcnum = PINSEL_FUNC_1;
 	PinCfg.Portnum = 0;
@@ -64,6 +68,9 @@ void uart_init(void)
 	PINSEL_ConfigPin(&PinCfg);
 	PinCfg.Pinnum = 3;
 	PINSEL_ConfigPin(&PinCfg);
+	
+    GPIO_SetDir(0, (1 << 2), 1);
+	GPIO_SetDir(0, (1 << 3), 0);
 #endif	
 
 	/* Initialize UART Configuration parameter structure to default state:
@@ -73,7 +80,7 @@ void uart_init(void)
 		* None parity
 		*/
 	UART_ConfigStructInit(&UARTConfigStruct);
-	UARTConfigStruct.Baud_rate = 57600;
+	UARTConfigStruct.Baud_rate = baud_rate;
 
 	// Initialize UART peripheral with given to corresponding parameter
 	UART_Init(DBG_UART, &UARTConfigStruct);
@@ -91,7 +98,7 @@ void uart_init(void)
 	UART_FIFOConfig(DBG_UART, &UARTFIFOConfigStruct);
 
 	// Enable UART Transmit
-	UART_TxCmd(DBG_UART, ENABLE);
+	UART_TxCmd(DBG_UART, ENABLE);	
 }
 
 char uart_data_available(void)
@@ -117,4 +124,201 @@ void uart_writestr(char *data)
 
  	while ((r = data[i++]))
 		uart_send(r);
+}
+
+void uart_hex4(uint8_t v) {
+	v &= 0xF;
+	if (v < 10)
+		uart_writechar('0' + v);
+	else
+		uart_writechar('A' - 10 + v);
+}
+
+void uart_hex8(uint8_t v) {
+	uart_hex4(v >> 4);
+	uart_hex4(v & 0x0F);
+}
+
+void uart_hex16(uint16_t v) {
+	uart_hex8(v >> 8);
+	uart_hex8(v & 0xFF);
+}
+
+void uart_hex32(uint32_t v) {
+	uart_hex16(v >> 16);
+	uart_hex16(v & 0xFFFF);
+}
+
+void uart_uint32(uint32_t v) {
+	uint8_t t = 0;
+	if (v >= 1000000000) {
+		for (t = 0; v >= 1000000000; v -= 1000000000, t++);
+		uart_writechar(t + '0');
+	}
+
+	if (v >= 100000000) {
+		for (t = 0; v >= 100000000; v -= 100000000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 10000000) {
+		for (t = 0; v >= 10000000; v -= 10000000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 1000000) {
+		for (t = 0; v >= 1000000; v -= 1000000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 100000) {
+		for (t = 0; v >= 100000; v -= 100000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 10000) {
+		for (t = 0; v >= 10000; v -= 10000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 1000) {
+		for (t = 0; v >= 1000; v -= 1000, t++);
+		uart_writechar(t + '0');
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 100) {
+		t = v / 100;
+		uart_writechar(t + '0');
+		v -= (t * 100);
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	if (v >= 10) {
+	        /* 99 > v > 10 */
+		t = v / 10;
+		uart_writechar(t + '0');
+		v -= (t * 10);
+	}
+	else if (t != 0)
+		uart_writechar('0');
+
+	uart_writechar(v + '0');
+}
+
+void uart_int32(int32_t v) {
+	if (v < 0) {
+		uart_writechar('-');
+		v = -v;
+	}
+
+	uart_uint32(v);
+}
+
+void uart_double(double v)
+{
+  if (v < 0)
+  {
+    uart_writechar ('-');
+    v = -v;
+  }
+  
+  /* print first part before '.' */
+  uart_uint32((uint32_t) v);
+
+  /* print the '.' */
+  uart_writechar('.');
+
+  /* print last part after '.' */
+  v = v - (int32_t)v;
+
+  v = v * 1000.0;
+  if (v < 100.0)
+  	uart_writechar('0');
+  if (v < 10.0)
+  	uart_writechar('0');
+  uart_uint32((uint32_t) v);  	
+  
+}
+
+
+
+void uart_sendf(char *format, ...)
+{ 
+  va_list args;
+  va_start(args, format);
+		
+          unsigned int i = 0;
+        unsigned char c, j = 0;
+        while ((c = format[i++])) {
+                if (j) {
+                        switch(c) {
+                                case 'l':
+                                        j = 4;
+                                        break;
+                                case 'u':
+                                        if (j == 4)
+                                                uart_uint32(va_arg(args, unsigned int));
+                                        else
+                                                uart_uint16(va_arg(args, unsigned int));
+                                        j = 0;
+                                        break;
+                                case 'd':
+                                        if (j == 4)
+                                                uart_int32(va_arg(args, int));
+                                        else
+                                                uart_int16(va_arg(args, int));
+                                        j = 0;
+                                        break;
+
+                                /* print a double in normal notation */
+                                case 'g':
+                                uart_double(va_arg(args, double));
+                                j = 0;
+                                break;
+
+                                case 'p':
+                                case 'x':
+                                        uart_writestr(uart_str_ox);
+                                        if (j == 4)
+                                                uart_hex32(va_arg(args, unsigned int));
+                                        else
+                                                uart_hex16(va_arg(args, unsigned int));
+                                        j = 0;
+                                        break;
+                                case 'c':
+                                        uart_send(va_arg(args, unsigned int));
+                                        j = 0;
+                                        break;
+                                case 's':
+                                        uart_writestr(va_arg(args, char *));
+                                        j = 0;
+                                        break;
+                                default:
+                                        j = 0;
+                                        break;
+                        }
+                }
+                else {
+                        if (c == '%') {
+                                j = 2;
+                        }
+                        else {
+                                uart_send(c);
+                        }
+                }
+        }
+
 }

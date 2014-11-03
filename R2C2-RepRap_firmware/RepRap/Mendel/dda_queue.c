@@ -73,7 +73,7 @@ void queue_step()
       if (temp_achieved(EXTRUDER_0))
       {
         movebuffer[mb_tail].live = movebuffer[mb_tail].waitfor_temp = 0;
-        serial_writestr("Temp achieved\r\n");
+        debug("Temp achieved\r\n");
       }
     }
     else
@@ -93,7 +93,7 @@ void enqueue(TARGET *t)
 {
   // don't call this function when the queue is full, but just in case, wait for a move to complete and free up the space for the passed target
   while (queue_full())
-    delay(WAITING_DELAY);
+    delay_ms(WAITING_DELAY);
 
   uint8_t h = mb_head + 1;
   h &= (MOVEBUFFER_SIZE - 1);
