@@ -79,6 +79,9 @@ static struct {
   } read_digit;
 static double value;
 
+uint32_t written_lines;
+
+
 // accept the next character and process it
 void gcode_parse_char(uint8_t c);
 
@@ -221,11 +224,16 @@ eParseResult gcode_parse_line (tLineBuffer *pLine)
               // M29 - stop writing
               sd_writing_file = false;
               sd_close (&file);
+			  serial_writestr("ok\r\n");
               serial_writestr("Done saving file\r\n");
+			  debug("\r\nDone saving file\r\n");
             }
             else
             {
               // else - do not write SD M-codes to file
+			  written_lines++;
+			  led_on = (((written_lines / 10)%10)>5?1:0);
+			  digital_write (1, (1<<20), led_on);
               serial_writestr("ok\r\n");
             }
           }
@@ -240,6 +248,7 @@ eParseResult gcode_parse_line (tLineBuffer *pLine)
             if (sd_write_to_file(pLine->data, pLine->len))
             {
               serial_writestr("ok\r\n");
+			  debug(".");
             }
             else
             {
@@ -349,7 +358,7 @@ void gcode_parse_char(uint8_t c)
         // this is a bit hacky since string parameters don't fit in general G code syntax
         // NB: filename MUST start with a letter and MUST NOT contain spaces
         // letters will also be converted to uppercase
-        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 302) || next_target.M == 710)
+        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 30) || (next_target.M == 302) || (next_target.M == 710))
         {
           next_target.getting_string = 1;
         }
@@ -458,16 +467,8 @@ void gcode_parse_char(uint8_t c)
           next_target.S = value;
         break;
 
-        case 'P':
-        // if this is dwell, multiply by 1000 to convert seconds to milliseconds
-        if (next_target.G == 4)
-        {
-          next_target.P = value * 1000.0;
-        }
-        else
-        {
-          next_target.P = value;
-        }
+        case 'P':        
+          next_target.P = value;        
         break;
 
         case 'N':

@@ -421,6 +421,7 @@ void read_config (void)
   
   read_gcode_file ("autoexec.g");
 
+  f_mount(0, NULL);
   /* Initialize using values read from "config.txt" file */
   gcode_parse_init();
 

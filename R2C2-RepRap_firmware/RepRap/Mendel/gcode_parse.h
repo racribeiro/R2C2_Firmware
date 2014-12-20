@@ -144,6 +144,8 @@ extern GCODE_COMMAND next_target;
 // utility functions
 //int32_t	decfloat_to_int(decfloat *df, int32_t multiplicand, int32_t denominator);
 
+extern uint8_t led_on;
+extern uint32_t written_lines;
 
 void gcode_parse_init(void);
 

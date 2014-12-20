@@ -176,20 +176,21 @@ int16_t _cached_power = 0;
 
 void fanSetCallback (__attribute__((unused)) tTimer *pTimer)
 {
-  debug("- fan power final set %d\r\n", _cached_power);
+  debug("+ fan power final set %d\r\n", _cached_power);
   temp_set(EXTRUDER_0_FAN, (int) (_cached_power / 2.55)); 
 }
 
 void extruder_fan_set(int16_t power)
 {
-  debug("- Setting fan power %d\r\n", power);
-  if ((power > 0) && (power < 20)) {
+  debug("+ Setting fan power %d\r\n", power);
+  if ((power > 0) && (power < 50)) {
     _cached_power = power;
     temp_set(EXTRUDER_0_FAN, 100); 	
     StartSlowTimer (&fanTimer, 2000, fanSetCallback);  
-	debug("- fan power %d hooked\r\n", power);
+	debug("+ fan power %d hooked\r\n", power);
   } else {
     temp_set(EXTRUDER_0_FAN, (int) (power / 2.55)); 
+	debug("+ Done %d\r\n", (int) (power / 2.55));
   }
 }
 
@@ -198,11 +199,11 @@ void temp_set(uint8_t sensor_number,int16_t t)
   if (t)
   {
     steptimeout = 0;  // Initiate timer
-//?    power_on(); // Turn on ATX, not needed on R2C2
+    power_on(); // Turn on ATX, not needed on R2C2
   }
 
+  // debug("- temp_set(%d,%d);", (int)sensor_number, (int)t);
   target_temp[sensor_number] = t;  
-
 }
 
 int16_t temp_get(uint8_t sensor_number)
@@ -258,6 +259,7 @@ void set_heater_pattern(uint8_t sensor_number, float power)
   if (power > 0) {
     position = 0;
     while(position < TEMP_ELEMENTS) {
+	  // debug("+ %g = %g\r\n", step, position);
   	  temp_pattern[sensor_number][(int)position] = 1;
 	  position += step;
     }
@@ -272,6 +274,7 @@ double get_pid_val(uint8_t sensor_number)
 void temp_tick(__attribute__((unused)) tTimer *pTimer)
 {
   bool result = 0;
+  uint16_t last;
   
   //sersendf("- temp_tick\r\n");
   
@@ -285,10 +288,13 @@ void temp_tick(__attribute__((unused)) tTimer *pTimer)
 	  sersendf("- E Safeguard value exceded [%d], turning off extruder_1\r\n", config.safeguard_extruder_1);
       set_heater_pattern(EXTRUDER_0,0);
     } else {
+	
+	  last = (uint16_t) *pid[EXTRUDER_0].myOutput;
       result = PID_Compute(&pid[EXTRUDER_0]);	  
 	  if (result) {
 	    // sersendf("- E + %g\r\n", *pid[EXTRUDER_0].myOutput);
-	    set_heater_pattern(EXTRUDER_0,*pid[EXTRUDER_0].myOutput);
+		if (last != (uint16_t) *pid[EXTRUDER_0].myOutput)
+	      set_heater_pattern(EXTRUDER_0,*pid[EXTRUDER_0].myOutput);
       }
     }
   }
@@ -303,17 +309,21 @@ void temp_tick(__attribute__((unused)) tTimer *pTimer)
       set_heater_pattern(HEATED_BED_0,0);	  
     } else {
 	
+	  last = (uint16_t) *pid[HEATED_BED_0].myOutput;
       result = PID_Compute(&pid[HEATED_BED_0]);	  
 	  if (result) {
 	    // sersendf("- H + %g\r\n", *pid[HEATED_BED_0].myOutput);
-	    set_heater_pattern(HEATED_BED_0,*pid[HEATED_BED_0].myOutput);
+		if (last != (uint16_t) *pid[HEATED_BED_0].myOutput)
+	      set_heater_pattern(HEATED_BED_0,*pid[HEATED_BED_0].myOutput);
       }
     }
   }
   
   if (current_temp[EXTRUDER_0_FAN] != target_temp[EXTRUDER_0_FAN]) {  
+    debug("+ Got here (fan)!\r\n");
     current_temp[EXTRUDER_0_FAN] = target_temp[EXTRUDER_0_FAN];
 	set_heater_pattern(EXTRUDER_0_FAN,target_temp[EXTRUDER_0_FAN]);    
+	debug("+ Done (fan)!\r\n");
   }
   
   /* Manage heater using simple ON/OFF logic, no PID */  

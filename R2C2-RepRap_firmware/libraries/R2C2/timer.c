@@ -278,7 +278,7 @@ long millis(void)
 
 void delay_s(int s)
 {
-  //delay_ms((long)s * 1000);
+  delay_ms((long)s * 1000);
 }
 
 void delay_ms(long ms)

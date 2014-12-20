@@ -216,7 +216,7 @@ void init(void)
   
   // set up inputs and outputs
   uart_init(57600);    
-  uart_writestr("Hello!\r\n");
+  uart_writestr("Hi UART Port!!\r\n");
   
   /* Initialize Gcode parse variables */
   gcode_parse_init();
@@ -249,8 +249,8 @@ void processCommandQueue()
       }      
     }
 
-    while(uart_data_available()) {
-	  uart_sendf(" in\r\n");
+    /* RR 2014-11-20 : the uart port config isn't correct. disabling as it may be interfering with fan or boot button
+    while(uart_data_available()) {  
       unsigned char c = uart_receive();
       
       if (uart_line_buf.len < MAX_LINE)
@@ -265,12 +265,13 @@ void processCommandQueue()
       }
 	  
 	  if (uart_line_buf.len > 0) {
-	    uart_sendf("got something [%s]\r\n", uart_line_buf.data);
+	    uart_sendf("got something [%u : %s]\r\n", uart_line_buf.len, uart_line_buf.data);
 	    if (strcmp(uart_line_buf.data, "HELLO")) {
-		  uart_writestr("Hello!");
+		  uart_writestr("HELLO!\r\n");
 		}
 	  }
 	}
+	*/
 	
 	// process SD file if no serial command pending
     if (!sd_line_buf.seen_lf && sd_printing)

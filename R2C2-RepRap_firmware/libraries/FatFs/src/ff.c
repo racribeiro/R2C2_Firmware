@@ -119,7 +119,6 @@
 #define	ENTER_FF(fs)		{ if (!lock_fs(fs)) return FR_TIMEOUT; }
 #define	LEAVE_FF(fs, res)	{ unlock_fs(fs, res); return res; }
 #else
-#warning TEST
 #define	ENTER_FF(fs)        { }
 #define LEAVE_FF(fs, res)	{ return res; }
 #endif
@@ -1780,7 +1779,7 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 	const TCHAR *p = *path;
 	FATFS *fs;
 
-debug("- chk_mounted 1\r\n");
+//debug("- chk_mounted 1\r\n");
 
 	/* Get logical drive number from the path name */
 	vol = p[0] - '0';					/* Is there a drive number? */
@@ -1795,30 +1794,30 @@ debug("- chk_mounted 1\r\n");
 #endif
 	}
 
-debug("- chk_mounted 2 [ %ud ]\r\n", vol);
-delay_s(1);
+// debug("- chk_mounted 2 [ %ud ]\r\n", vol);
+// delay_s(1);
 
 	/* Check if the logical drive is valid or not */
 	if (vol >= _VOLUMES) 				/* Is the drive number valid? */
 		return FR_INVALID_DRIVE;
 		
-debug("- chk_mounted 2.1\r\n");		
-delay_s(1);
+// debug("- chk_mounted 2.1\r\n");		
+// delay_s(1);
 		
 	*rfs = fs = FatFs[vol];				/* Return pointer to the corresponding file system object */
 	
-debug("- chk_mounted 2.2\r\n");
-delay_s(1);
+// debug("- chk_mounted 2.2\r\n");
+// delay_s(1);
 	
 	if (!fs) return FR_NOT_ENABLED;		/* Is the file system object available? */
 
-debug("- chk_mounted 3\r\n");
-delay_s(1);
+// debug("- chk_mounted 3\r\n");
+// delay_s(1);
 
 	ENTER_FF(fs);						/* Lock file system */
 	
-debug("- chk_mounted 4\r\n");	
-delay_s(1);
+// debug("- chk_mounted 4\r\n");	
+// delay_s(1);
 
 	if (fs->fs_type) {					/* If the logical drive has been mounted */
 		stat = disk_status(fs->drv);
@@ -1831,8 +1830,8 @@ delay_s(1);
 		}
 	}
 
-debug("- chk_mounted 5\r\n");
-delay_s(1);
+// debug("- chk_mounted 5\r\n");
+// delay_s(1);
 
 	/* The logical drive must be mounted. */
 	/* Following code attempts to mount a volume. (analyze BPB and initialize the fs object) */
@@ -1851,8 +1850,8 @@ delay_s(1);
 		return FR_WRITE_PROTECTED;
 #endif
 
-debug("- chk_mounted 6\r\n");
-delay_s(1);
+// debug("- chk_mounted 6\r\n");
+// delay_s(1);
 
 	/* Search FAT partition on the drive. Supports only generic partitionings, FDISK and SFD. */
 	fmt = check_fs(fs, bsect = 0);		/* Check sector 0 if it is a VBR */
@@ -1867,8 +1866,8 @@ delay_s(1);
 	if (fmt == 3) return FR_DISK_ERR;
 	if (fmt) return FR_NO_FILESYSTEM;					/* No FAT volume is found */
 
-debug("- chk_mounted 7\r\n");
-delay_s(1);
+// debug("- chk_mounted 7\r\n");
+// delay_s(1);
 
 	/* Following code initializes the file system object */
 
@@ -1889,8 +1888,8 @@ delay_s(1);
 	fs->n_rootdir = LD_WORD(fs->win+BPB_RootEntCnt);	/* Number of root directory entries */
 	if (fs->n_rootdir % (SS(fs) / 32)) return FR_NO_FILESYSTEM;	/* (BPB_RootEntCnt must be sector aligned) */
 
-debug("- chk_mounted 8\r\n");
-delay_s(1);
+// debug("- chk_mounted 8\r\n");
+// delay_s(1);
 
 	tsect = LD_WORD(fs->win+BPB_TotSec16);				/* Number of sectors on the volume */
 	if (!tsect) tsect = LD_DWORD(fs->win+BPB_TotSec32);
@@ -1907,8 +1906,8 @@ delay_s(1);
 	if (nclst >= MIN_FAT16) fmt = FS_FAT16;
 	if (nclst >= MIN_FAT32) fmt = FS_FAT32;
 
-debug("- chk_mounted 9\r\n");
-delay_s(1);
+// debug("- chk_mounted 9\r\n");
+// delay_s(1);
 
 	/* Boundaries and Limits */
 	fs->n_fatent = nclst + 2;							/* Number of FAT entries */
@@ -1927,7 +1926,7 @@ delay_s(1);
 	if (fs->fsize < (szbfat + (SS(fs) - 1)) / SS(fs))	/* (FAT size must not be less than FAT sectors */
 		return FR_NO_FILESYSTEM;
 
-debug("- chk_mounted 10\r\n");
+//debug("- chk_mounted 10\r\n");
 
 #if !_FS_READONLY
 	/* Initialize cluster allocation information */
@@ -1955,13 +1954,13 @@ debug("- chk_mounted 10\r\n");
 	fs->cdir = 0;			/* Current directory (root dir) */
 #endif
 
-debug("- chk_mounted 11\r\n");
+//debug("- chk_mounted 11\r\n");
 
 #if _FS_SHARE				/* Clear file lock semaphores */
 	clear_lock(fs);
 #endif
 
-debug("- chk_mounted 12\r\n");
+//debug("- chk_mounted 12\r\n");
 
 	return FR_OK;
 }
@@ -2765,56 +2764,56 @@ FRESULT f_opendir (
 	FRESULT res;
 	DEF_NAMEBUF;
 
-    debug("- f_opendir 0\r\n");
-	delay_s(1);
+    // debug("- f_opendir 0\r\n");
+	// delay_s(1);
 	
 	res = chk_mounted(&path, &dj->fs, 0);
 	if (res == FR_OK) {
-	debug("- f_opendir 1\r\n");
-	delay_s(1);
+// 	debug("- f_opendir 1\r\n");
+// 	delay_s(1);
 	
 		INIT_BUF(*dj);
-		debug("- f_opendir 2\r\n");
-		delay_s(1);
+//		debug("- f_opendir 2\r\n");
+// 		delay_s(1);
 		
 		res = follow_path(dj, path);			/* Follow the path to the directory */
-		debug("- f_opendir 3\r\n");
-		delay_s(1);
+		// debug("- f_opendir 3\r\n");
+		// delay_s(1);
 		
 		FREE_BUF();
-		debug("- f_opendir 4\r\n");
-		delay_s(1);
+		// debug("- f_opendir 4\r\n");
+		// delay_s(1);
 		
 		if (res == FR_OK) {						/* Follow completed */
-		  debug("- f_opendir 4.1\r\n");
+		  // debug("- f_opendir 4.1\r\n");
 			if (dj->dir) {						/* It is not the root dir */
 				if (dj->dir[DIR_Attr] & AM_DIR) {	/* The object is a directory */
-				    debug("- f_opendir found dir\r\n");
+			//	    debug("- f_opendir found dir\r\n");
 					dj->sclust = LD_CLUST(dj->dir);
-					delay_s(1);
+			//		delay_s(1);
 				} else {						/* The object is not a directory */
-				    debug("- f_opendir found not a dir\r\n");
-					delay_s(1);
+			//	    debug("- f_opendir found not a dir\r\n");
+            //      delay_s(1);
 					res = FR_NO_PATH;
 				}
 			}
 			if (res == FR_OK) {
 				dj->id = dj->fs->id;
-				debug("- f_opendir 5\r\n");
+			//	debug("- f_opendir 5\r\n");
 				res = dir_sdi(dj, 0);			/* Rewind dir */
-				debug("- f_opendir 6\r\n");
+			//	debug("- f_opendir 6\r\n");
 			}
 		}
 		if (res == FR_NO_FILE) res = FR_NO_PATH;
 	} else {
-	  debug("- chk_mounted failed: %d\r\n", res);
+	  // debug("- chk_mounted failed: %d\r\n", res);
 	}
 
-    debug("- f_opendir 7\r\n");
-	delay_s(1);
+    // debug("- f_opendir 7\r\n");
+	// delay_s(1);
 	LEAVE_FF(dj->fs, res);
-	debug("- f_opendir 8\r\n");
-	delay_s(1);
+	// debug("- f_opendir 8\r\n");
+	// delay_s(1);
 }
 
 

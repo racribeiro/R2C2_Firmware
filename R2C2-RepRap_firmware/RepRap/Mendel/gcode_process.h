@@ -33,6 +33,7 @@
 
 #include <stdbool.h>
 #include "gcode_parse.h"
+#include "stepper.h"
 #include "ff.h"
 #include "debug.h"
 

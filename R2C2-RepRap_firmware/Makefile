@@ -180,6 +180,7 @@ SRC = \
 	$(APPLIBDIR)/FatFs/src/option/syscall.c \
 	$(APPLIBDIR)/FatFs/src/diskio.c \
 	$(APPLIBDIR)/FatFs/src/fattime.c \
+	$(APPLIBDIR)/FatFs/src/option/ccsbcs.c \
 	$(APPLIBDIR)/R2C2/ios.c \
 	$(APPLIBDIR)/R2C2/usb.c \
 	$(APPLIBDIR)/R2C2/serial_fifo.c \

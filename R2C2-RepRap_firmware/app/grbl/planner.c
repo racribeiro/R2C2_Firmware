@@ -716,7 +716,7 @@ void plan_buffer_wait (tActionRequest *pAction)
   // Prepare to set up new block
   block = &block_buffer[block_buffer_tail];
   
-  //TODO
+  //TODO - it seems that nothing below is useful... RR - 2014-11-17
   
   block->action_type = pAction->ActionType;
   // every 50ms
@@ -745,6 +745,31 @@ void plan_buffer_wait (tActionRequest *pAction)
     
 }
 
+void plan_fan_set (tActionRequest *pAction)
+{
+  block_t *block;
+    
+  // Calculate the new buffer tail after we push this block
+  uint8_t next_buffer_tail = next_block_index( block_buffer_tail );	
+  
+  // If the buffer is full: good! That means we are well ahead of the robot. 
+  // Rest here until there is room in the buffer.
+  while(block_buffer_head == next_buffer_tail) { sleep_mode(); }
+  
+  // Prepare to set up new block
+  block = &block_buffer[block_buffer_tail];
+  
+  block->action_type = pAction->ActionType;
+  block->fan_power = pAction->wait_param;
+  
+  // Move buffer tail
+  block_buffer_tail = next_buffer_tail;     
+
+  // if (acceleration_manager_enabled) { planner_recalculate(); }  
+  // st_wake_up();
+  
+}
+
 void plan_buffer_action(tActionRequest *pAction)
 {
   switch (pAction->ActionType)
@@ -758,6 +783,10 @@ void plan_buffer_action(tActionRequest *pAction)
   case AT_WAIT:
   case AT_WAIT_TEMPS:
     plan_buffer_wait (pAction);
+    break;
+	
+  case AT_FAN_SET:
+    plan_fan_set(pAction);
     break;
   }
 }

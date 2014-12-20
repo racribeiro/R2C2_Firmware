@@ -55,6 +55,7 @@
 #define MOTION_MODE_CCW_ARC 3 // G3
 #define MOTION_MODE_CANCEL 4 // G80
 
+FATFS     fs;       /* Work area (file system object) for logical drive */
 FIL       file;
 uint32_t  filesize = 0;
 uint32_t  sd_pos = 0;
@@ -84,7 +85,7 @@ uint8_t targetStackPos = 0;
 
 void debug_tTarget(tTarget *t)
 {
-  sersendf(" - X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
+  // sersendf(" - X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
 }
 
 void read_gcode_file(char *filename)
@@ -159,7 +160,16 @@ static void enqueue_wait_temp (void)
 {
   tActionRequest request;
 
-  request.ActionType = AT_WAIT_TEMPS;
+  request.ActionType = AT_WAIT_TEMPS;  
+  plan_buffer_action (&request);
+}
+
+static void enqueue_fan (int speed)
+{
+  tActionRequest request;
+
+  request.ActionType = AT_FAN_SET;
+  request.wait_param = speed;
   plan_buffer_action (&request);
 }
 
@@ -327,18 +337,31 @@ static void zero_e(void)
 
 void sd_initialise(void)
 {
+  f_mount(0, &fs);
   sd_active = true;
 }
 
-FRESULT sd_list_dir_sub (char *path)
+void sd_unitialise(void)
+{
+  f_mount(0, NULL);
+  sd_active = false;
+}
+
+
+FRESULT sd_list_dir_sub (char *path, int level)
 {
   FRESULT res;
   FILINFO fno;
   DIR dir;
   int i;
   char *fn;
+
+  if (level == 8) {
+    debug("- maximum fs depth reached\n\r", level);  
+    return FR_OK;
+  }
   
-  inibhit_slow_timer = 1;
+  // inibhit_slow_timer = 1;
   
 #if _USE_LFN
   static char lfn[_MAX_LFN * (_DF1S ? 2 : 1) + 1];
@@ -371,7 +394,7 @@ FRESULT sd_list_dir_sub (char *path)
         strcat (path, "/");
         strcat (path, fn);
         // sprintf(&path[i], "/%s", fn);
-        res = sd_list_dir_sub(path);
+        res = sd_list_dir_sub(path, level+1);
         if (res != FR_OK)
         {
           break;
@@ -385,7 +408,7 @@ FRESULT sd_list_dir_sub (char *path)
     }	
   }
 
-  inibhit_slow_timer = 0;
+  // inibhit_slow_timer = 0;
   
   return res;
 }
@@ -395,7 +418,7 @@ char search_path[256];
 void sd_list_dir (void)
 {
   search_path[0] = '\0';
-  sd_list_dir_sub(search_path);
+  sd_list_dir_sub(search_path, 0);
 }
 
 unsigned sd_open(FIL *pFile, char *path, uint8_t flags)
@@ -669,10 +692,10 @@ void append_circle_movements(tTarget *next_targetd, double radius, double teta, 
 	debug_tTarget(next_targetd);
 	
 	if (next_target.option_relative) {
-	  sersendf(" - rel - %g\r\n", tt_targetd.e / segments);
+	  // sersendf(" - rel - %g\r\n", tt_targetd.e / segments);
 	  tt_targetd.e = next_targetd->e / segments;	 
 	} else {
-	  sersendf(" - abs - %g\r\n", startpoint.e + next_targetd->e / segments);
+	  // sersendf(" - abs - %g\r\n", startpoint.e + next_targetd->e / segments);
 	  tt_targetd.e = startpoint.e + next_targetd->e / segments;	 
 	}
 
@@ -708,6 +731,7 @@ void prepare_circle_movement(tTarget *next_targetd, double radius, int motion_mo
 double feed_rate_extruder_multiplier = 1;
 double feed_rate_movement_multiplier = 1;
 
+bool enqueue_fan_mode = false;
 	
 eParseResult process_gcode_command()
 {
@@ -804,7 +828,7 @@ eParseResult process_gcode_command()
       synch_queue();
 
       // delay
-      delay_ms(next_target.P);
+      delay_s(next_target.P);
       break;
 
       //	G20 - inches as units
@@ -946,7 +970,7 @@ eParseResult process_gcode_command()
 	  
       sersendf("Begin file list\r\n"); // This is part of the protocol!
       // list files in root folder
-      //sd_list_dir();
+      sd_list_dir();
       sersendf("End file list\r\n"); // This is also part of the protocol!
 			
       break;
@@ -959,9 +983,8 @@ eParseResult process_gcode_command()
       break;
 
       case 22: // M22 - release SD card
-        sd_printing = false;
-        sd_active = false;
-        // TODO: should unmount volume
+        sd_printing = false;                
+		sd_unitialise();
       break;
 
       case 23: // M23 <filename> - Select file
@@ -1013,6 +1036,7 @@ eParseResult process_gcode_command()
       if(sd_active)
       {
         sersendf("SD printing byte %d/%d\r\n", sd_pos, filesize);
+		debug("SD printing byte %d/%d\r\n", sd_pos, filesize);
       }
       else
       {
@@ -1020,6 +1044,22 @@ eParseResult process_gcode_command()
       }      
       break;
 
+      case 30: //M30 <filename>
+	    if ((sd_active) && (!sd_printing)) { // Don't try to delete file if sd not active or during printing
+		  FRESULT res;
+		  
+		  res = f_unlink(next_target.filename);
+		  
+		  if (res == FR_OK) {
+		    serial_writestr("File deleted\r\n"); // Repetier expects this tring upon file removal
+		    debug("File deleted: %s\r\n", next_target.filename);
+		  } else {
+		    serial_writestr("Deletion failed\r\n"); // Repetier expects this tring upon file removal
+		    debug("Deletion failed: %s\r\n", next_target.filename);
+		  }
+		}
+	  break;
+	  
       case 28: //M28 <filename> - Start SD write
       if (!sd_active)
       {
@@ -1033,17 +1073,21 @@ eParseResult process_gcode_command()
         if (!sd_open(&file, next_target.filename, FA_CREATE_ALWAYS | FA_WRITE))
         {
           sersendf("open failed, File: %s.\r\n", next_target.filename);
+		  debug("open failed, File: %s.\r\n", next_target.filename);
         }
         else
         {
           sd_writing_file = true;
           sersendf("Writing to file: %s\r\n", next_target.filename);
+		  debug("Writing to file: %s\r\n", next_target.filename);
+		  written_lines = 0;
         }
       }	  
       break;
 
       case 29: //M29 - Stop SD write
       // processed in gcode_parse_char()
+	  // This is never reached!
       break;
 
       case 80: // M80 - Turn on ATX
@@ -1081,6 +1125,7 @@ eParseResult process_gcode_command()
 
       // M104- set temperature
       case 104:
+
       if (config.enable_extruder_1)
       {
         temp_set(EXTRUDER_0, next_target.S);
@@ -1088,8 +1133,7 @@ eParseResult process_gcode_command()
         if (config.wait_on_temp)
         {
           enqueue_wait_temp();
-        }
-		
+        }		
       }
 
       break;
@@ -1102,16 +1146,32 @@ eParseResult process_gcode_command()
 
       // M106- fan on
       case 106:	    
+	    
 	    if (next_target.seen_S) {
-	      extruder_fan_set(next_target.S);
+		  if (enqueue_fan_mode) {
+		    enqueue_fan(next_target.S);			
+		  } else {
+		    synch_queue();
+  	        extruder_fan_set(next_target.S);	    
+		  }
 		} else {
-		  extruder_fan_set(255);
+	      if (enqueue_fan_mode) {	        
+		    enqueue_fan(255);
+		  } else {
+            synch_queue();
+		    extruder_fan_set(255);			
+		  }
 		}
       break;
 
       // M107- fan off
       case 107:
-      	extruder_fan_set(0);
+	    if (enqueue_fan_mode) {
+		  enqueue_fan(0);      	
+		} else {
+	      synch_queue();
+		  extruder_fan_set(0);
+		}
       break;
 
       // M108 - set extruder speed
@@ -1133,8 +1193,12 @@ eParseResult process_gcode_command()
       break;
 
       // M110- set line number
-      case 110:
-      next_target.N_expected = next_target.S - 1;
+      case 110:	    
+	    if (next_target.seen_S) {
+          next_target.N_expected = next_target.S; //- 1;
+		} else {
+		  next_target.N_expected = 1;
+		}		
       break;
 
       // M111- set debug level
@@ -1144,13 +1208,13 @@ eParseResult process_gcode_command()
 
       // M112- immediate stop
       case 112:
-        disableHwTimer(0); // disable stepper ?
+		disableHwTimer(0); // disable stepper ?        
         //queue_flush(); // error: " undefined reference to `queue_flush'" ??
 
         // disable extruder and bed heaters
         temp_set(EXTRUDER_0,0);
         temp_set(HEATED_BED_0,0);
-        power_off();
+        power_off();		
       break;
 
       // M113- extruder PWM
@@ -1159,17 +1223,18 @@ eParseResult process_gcode_command()
 
       /* M114- report XYZE to host */
       case 114:
-      // wait for queue to complete ???
+      
+	    enqueue_wait();
 
-      if (next_target.option_inches)
-      {
+        if (next_target.option_inches)
+        {
 
-      }
-      else
-      {
-        sersendf("ok C: X:%g Y:%g Z:%g E:%g\r\n", startpoint.x, startpoint.y, startpoint.z, startpoint.e);
-		reply_sent = true;
-      }
+        }
+        else
+        {
+          sersendf("ok C: X:%g Y:%g Z:%g E:%g\r\n", startpoint.x, startpoint.y, startpoint.z, startpoint.e);
+	  	  reply_sent = true;
+        }
       
       break;
 
@@ -1238,7 +1303,7 @@ eParseResult process_gcode_command()
 	    temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);		
       break;
 
-      // M133- heated bed P=X, I=Y, D=Z, MIN=I, MAX=J
+      // M133- heated bed P=X, I=Y, D=Z, MAX=I, MIN=J
       case 133:
         if (next_target.seen_X)
           config.p_factor_heated_bed_0 = next_target.target.x;
@@ -1410,8 +1475,8 @@ eParseResult process_gcode_command()
 
       // M228 - Disable Auto-prime/reverse
       case 228:
-      auto_prime_steps = 0;
-      auto_reverse_steps = 0;
+        auto_prime_steps = 0;
+        auto_reverse_steps = 0;
       break;
 
       // M229 - Enable Auto-prime/reverse
@@ -1446,7 +1511,7 @@ eParseResult process_gcode_command()
       }
       break;
 
-      // Plays Jingle Bell from Static Library
+      // Plays Music from Static Library
       case 301:
       {
         //play_jingle_bell();
@@ -1655,27 +1720,45 @@ eParseResult process_gcode_command()
 		sersendf("debug F target_power = %d\r\n", temp_get_target(EXTRUDER_0_FAN));		
 	  break;
 	  
+	  // SERIAL COMMANDS
+	  
 	  case 710:
 	    uart_sendf("%s\r\n", next_target.filename);
 	  break;
+	  
+	  
+	  // STACK COMMANDS
 	  
 	  case 720:
 	    uart_sendf("Stack Height: %d\r\n", targetStackPos);
 	  break;
 	  
 	  case 721:
-	    uart_sendf("Push\r\n");
+	    
 		enqueue_wait();
 		if (targetStackPos < MAX_TARGET_STACK) {		          
+		  uart_sendf("Push\r\n");
 		  memcpy(&targetStack[targetStackPos++], &startpoint, sizeof(startpoint));
+		} else {
+		  uart_sendf("Stack full\r\n");
 		}
 	  break;
 	  
-	  case 722:
-	    uart_sendf("Pop\r\n");
+	  case 722:	    
 		if (targetStackPos > 0) {		  
 		  enqueue_moved(&targetStack[--targetStackPos]);
+		  uart_sendf("Pop\r\n");
+		} else {
+		  uart_sendf("Stack empty\r\n");
 		}
+	  break;
+
+	  case 730:
+	    enqueue_fan_mode = false;
+	  break;
+
+      case 731:
+	    enqueue_fan_mode = true;
 	  break;
 				
       // unknown mcode: spit an error

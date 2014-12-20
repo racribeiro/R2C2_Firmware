@@ -1,0 +1,290 @@
+G-CODE Supported
+----------------
+
+This file contains all the G-Code supported by this firmware. This text was produced based on the source code
+present on the "/RepRap/Mendel/gcode_process.c" on function "process_gcode_command":
+
+G0 - rapid (twice the X maximum feedrate), unsynchronised motion
+  X - x destination coordinate
+  Y - y destination coordinate
+  Z - z destination coordinate
+  
+G1 - syncronized motion
+  X - x destination coordinate
+  Y - y destination coordinate
+  Z - z destination coordinate
+  E - amount of E
+
+G2 - Arc clockwise  (N)
+
+Mode 1 - circle clockwise around position X,Y coord using R radius. Z is handled linearly
+  X - center of circle X coord
+  Y - center of circle Y coord
+  Z - z destination coordinate
+  F - speed rate
+  E - amount of E
+  R - radius of arc
+
+Mode 2 - arc clockwise from current position to X,Y coord using I to  radius. Z is handled linearly
+  X - final X coord
+  Y - final Y coord
+  I - relative to X coordinate for arc center
+  J - relative to y coordinate for arc center
+  Z - z destination coordinate
+  R - radius of arc
+
+G3 - Arc counter clockwise  (N)
+
+Mode 1 - circle counter clockwise around position X,Y coord using R radius. Z is handled linearly
+  X - center of circle X coord
+  Y - center of circle Y coord
+  Z - z destination coordinate
+  F - speed rate
+  E - amount of E
+  R - radius of arc
+
+Mode 2 - arc counter clockwise from current position to X,Y coord using I to  radius. Z is handled linearly
+  X - final X coord
+  Y - final Y coord
+  I - relative to X coordinate for arc center
+  J - relative to y coordinate for arc center
+  Z - z destination coordinate
+  R - radius of arc
+
+G4 - Waits for all moves to complete and delay P seconds
+  P - wait for P seconds
+
+G20 - start using inches as unit
+
+G21 - start using mm as unit
+
+G30 - go home via point
+  X - X coordinate via
+  Y - Y coordinate via
+  Z - Z coordinate via
+
+G28 - go home
+
+  <no parameters> - searches for zero_x, then zero_y, then zero_z, set E to 0
+  X - if X set, searches for zero_x
+  Y - if Y set, searches for zero_y
+  Z - if Z set, searches for zero_z
+  E - if E set, set E to 0
+
+G90 - absolute positioning
+
+G92 - set current position without moving
+  <no parameters> - set X to 0, set Y to 0, set Z to 0, set E to 0
+  X - set X coord
+  Y - set Y coord
+  Z - set Z coord
+  E - set E coord
+
+M20 - list SD card files (automount card, if needed)
+
+M21 - initialise/mount SD card
+
+M22 - release/unmount SD card
+
+M23 - select filename for printing
+ 
+  Example:
+
+    M23 autoexec.g
+
+M24 - Start print
+
+M25 - Pause print
+
+M26 - set SD file position
+
+  S - byte to seek
+
+M27 - get printing status
+
+M30 - deletes file
+
+  Examples
+
+    M30 cube.g
+
+M28 - start writing file
+
+  Every subsquent commands, except for M29 will be writen on file
+
+  Example:
+
+    M30 cube.g
+
+M29 - stop writing file  
+
+M101 - enables extruder (Extruder On)
+
+M103 - disables extruder (Extruder Off)
+
+M104 - sets extruder Temperature
+
+  S - temperature
+
+M105 - gets extruder temperature
+
+M106 - sets fan speed
+
+  <no parameters> - full speed
+  S - 1-255 amount power, 0 disables fan (N)
+
+M107 - disables fan
+
+M108 - sets extruder speed
+
+  S - sets speed
+
+M109 - sets extruder temperature and wait to be reached
+
+  S - temperature to be reached
+
+M112 - imediate stop
+
+M114 - reports XYZE to host
+
+M115 - reports firmware version
+
+M116 - Wait for all tempertures
+
+M119 - Reports Endstop status
+
+M130 - Sets Extruder PID Function (N)
+
+  S = P Factor * 1000 (as integer)
+  X = P Factor
+  Y = I Factor
+  Z = D Factor
+  I = Max Power
+  J = Min Power
+
+M131 - Sets Extruder PID Function (I Factor, as integer) (N)
+
+  S = I Factor * 1000
+
+M132 - Sets Extruder PID Function (D Factor, as integer) (N)
+
+  S = D Factor * 1000
+
+M133 - Sets PID Function for heated bed (N)
+
+  X = P Factor
+  Y = I Factor
+  Z = D Factor
+  I = Max Power
+  J = Min Power
+
+M140 - Sets Bed Temperature
+
+  S = Target Temperature
+
+M200 - Sets Steps per mm
+
+  <no params> = reports
+  X - set steps per mm on X
+  Y - set steps per mm on Y
+  Z - set steps per mm on Z
+  E - set steps per mm on E
+
+M202 - Sets Max speed in mm/min
+
+  <no params> = reports
+  X - set speed in mm/min on X
+  Y - set speed in mm/min on Y
+  Z - set speed in mm/min on Z
+  E - set speed in mm/min on E
+
+M206 - Sets Accel in mm/sec^2
+
+  <no params> = reports
+  X - set accel in mm/sec^2 on X
+  Y - set accel in mm/sec^2 on Y
+  Z - set accel in mm/sec^2 on Z
+  E - set accel in mm/sec^2 on E
+
+M220 - Sets Movement Rate Multiplier (Repetier Host) (N)
+
+  S - sets Movement rate Multiplier
+
+M221 - Sets Feed Rate Multiplier (Repetier Host) (N)
+
+  S - sets Feed rate Multiplier
+
+M227 - Enable Auto-prime/reverse (steps)
+  P - prime on start (steps)
+  S - reverse on stop (steps)
+
+M228 - Disable Auto-prime/reverse
+
+M229 - Enable Auto-prime/reverse
+  P - prime on start (rotations)
+  S - reverse on stop (rotations)
+
+M300 - Beep
+  S - frequency (defaults to 1khz)
+  P - duration (defaults to 1 second)
+
+M301 - Plays Music from Static Library (Currently Axel Foley) (N)
+
+M302 - Plays RTTL string (N)
+
+  Example:
+
+    M302 Muppets:d=4,o=5,b=250:c6,c6,a,b,8a,b,g,p,c6,c6,a,8b,8a,8p,g.,p,e,e,g,f,8e,f,8c6,8c,8d,e,8e,8e,8p,8e,g,2p,c6,c6,a,b,8a,b,g,p,c6,c6,a,8b,a,g.,p,e,e,g,f,8e,f,8c6,8c,8d,e,8e,d,8d,c
+
+M500 - set/get adc value for Extruder temperature
+
+  S - temperature (degrees C, 0-300)
+  P - ADC val
+
+M501 - set/get adc value for Heatbed temperature
+
+  S - temperature (degrees C, 0-300)
+  P - ADC val
+
+M542 - Nozzle wipe/move to rest location
+
+  (depends on configuration file)
+
+M543 - Exit Nozzle Wipe/no op
+
+M551 - Prime Extruder
+
+M600 - Print current configuration (can be used as a config file template)
+
+M601 - Write Configuration (config.txt)
+
+  produces a backup file (config.bck) if original configuration already exists.
+
+M605 - Config current position as home position
+
+M606 - Wait for all commands to be executed on the queue
+
+M701 - Displays Extruder's PID debug information (N)
+
+M702 - Displays Heatedbed's PID debug information (N)
+
+M703 - Displays FAN control debug information (N)
+
+Serial Port commands:
+
+M710 - Sends String to Serial port (N)
+
+  Example:
+
+    M710 NEW_LAYER
+
+  Note: all characters are upcased
+
+Stack positioning commands: may be used on change layer to "save"/"push" current position, move to a "safe" or clear position, take some action (clean nozzle, take picture, ...), move to original position using "pop" command. Can hold up to 20 positions.
+
+M720 - Reports number of queued commands on serial port. (N)
+
+M721 - Pushes Current Position to Stack (N)
+
+M722 - Pops Position from Stack (N)
+

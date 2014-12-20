@@ -30,7 +30,8 @@ typedef enum {
   AT_MOVE,
   AT_MOVE_ENDSTOP,
   AT_WAIT,
-  AT_WAIT_TEMPS
+  AT_WAIT_TEMPS,
+  AT_FAN_SET
   } eActionType;
         
 typedef  struct {
@@ -71,6 +72,10 @@ typedef struct {
   
   // extra
   uint8_t check_endstops; // for homing moves
+    
+  // Fan Power
+  uint8_t fan_power;	
+	
 } block_t;
 
         
@@ -78,8 +83,9 @@ typedef struct {
   eActionType ActionType;
   
   tTarget     target;  
+    
+  uint16_t    wait_param; // time, target temp, fan power
   
-  uint16_t    wait_param; // time or target temp
 } tActionRequest;
 
 

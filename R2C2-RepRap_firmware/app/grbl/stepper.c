@@ -62,7 +62,7 @@
 volatile uint16_t steptimeout = 0;
 
 static uint8_t  led_count [NUM_AXES];
-static uint8_t  led_on;         // a bit mask
+uint8_t  led_on;         // a bit mask
 static uint8_t  leds_enabled;
 static uint16_t led_on_time;
 static uint16_t led_off_time;
@@ -536,6 +536,13 @@ void st_interrupt (void)
         plan_discard_current_block();
       }
     }
+	else if (current_block->action_type == AT_FAN_SET)
+	{
+      step_bits_xyz = step_bits_e = 0;
+	  extruder_fan_set(current_block->fan_power);
+      current_block = NULL;	  
+      plan_discard_current_block();
+	}
   } 
   else 
   {

@@ -73,9 +73,9 @@ void rtttl_play(char *song) {
     while (*p >= '0' && *p <= '9') value = value * 10 + (*p++ - '0');
 
     switch (param) {
-      case 'd': defdur = 32 / value; break;
-      case 'o': defscale = value; break;
-      case 'b': bpm = value; break;
+      case 'D': case 'd': defdur = 32 / value; break;
+      case 'O': case 'o': defscale = value; break;
+      case 'B': case 'b': bpm = value; break;
     }
 
     while (*p == ' ') p++;
@@ -120,7 +120,7 @@ void rtttl_play(char *song) {
       note++;
       p++;
     }
-    if (*p == 'b') {
+    if (*p == 'B') {
       note--;
       p++;
     }
@@ -166,7 +166,7 @@ void rtttl_play(char *song) {
 
 void rtttl_play_axelf()
 {
-  //Jingle Bells translated from sheet music
+  //Axel foley from: http://www.instructables.com/id/Aruino-Tone-RTTL-Player/step5/RTTL-Tones-Songs/
   char *axelf = "axelf:d=4,o=5,b=250:f#,8a.,8f#,16f#,8a#,8f#,8e,f#,8c.6,8f#,16f#,8d6,8c#6,8a,8f#,8c#6,8f#6,16f#,8e,16e,8c#,8g#,f#.";
   
   rtttl_play(axelf);
