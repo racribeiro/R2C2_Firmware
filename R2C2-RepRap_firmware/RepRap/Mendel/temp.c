@@ -67,6 +67,8 @@ static bool temp_pattern[NUMBER_OF_SENSORS][TEMP_ELEMENTS];
 
 static char debug_str[NUMBER_OF_SENSORS][1024];
 
+int16_t _cached_power = 0;
+
 int get_temp_pattern_pos(uint8_t sensor_number)
 {
   return temp_pattern_pos[sensor_number];
@@ -141,17 +143,25 @@ void temp_init_sensor(uint8_t sensor_id, unsigned int sampletime, unsigned int l
    // last_extruder_state[sensor_id] = 0;
    last_extruder_state[sensor_id] = LOW;
    set_heater_pattern(sensor_id, 0);
-   
+
    if (sensor_id == EXTRUDER_0) {   
-     PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
-                              config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT, sampletime, logduration * 1000 / sampletime);  	 
-     PID_SetOutputLimits(&pid[sensor_id], config.min_extruder_1, config.max_extruder_1);
+     if (_cached_power == 0) {
+	   debug("+ Using PID, FAN off\r\n"); 
+	   PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
+							  config.p_factor_extruder_1, config.i_factor_extruder_1, config.d_factor_extruder_1, DIRECT, sampletime, logduration * 1000 / sampletime);  	 
+	   PID_SetOutputLimits(&pid[sensor_id], config.min_extruder_1, config.max_extruder_1);
+	 } else {
+	   debug("+ Using PID, FAN on @ power %d\r\n", _cached_power); 
+  	   PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
+							  config.p_factor_extruder_fan_1, config.i_factor_extruder_fan_1, config.d_factor_extruder_fan_1, DIRECT, sampletime, logduration * 1000 / sampletime);  	 
+	   PID_SetOutputLimits(&pid[sensor_id], config.min_extruder_fan_1, config.max_extruder_fan_1);	   
+	 }
    }
    
    if (sensor_id == HEATED_BED_0) {   
-     PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
-                              config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT, sampletime, logduration * 1000 / sampletime);  
-     PID_SetOutputLimits(&pid[sensor_id], config.min_heated_bed_0, config.max_heated_bed_0);							  
+	 PID_PID(&pid[sensor_id], &current_temp[sensor_id], &output_temp[sensor_id], &target_temp[sensor_id],
+							  config.p_factor_heated_bed_0, config.i_factor_heated_bed_0, config.d_factor_heated_bed_0, DIRECT, sampletime, logduration * 1000 / sampletime);  
+	 PID_SetOutputLimits(&pid[sensor_id], config.min_heated_bed_0, config.max_heated_bed_0);							  
    }
       
    // PID_SetMode(&pid[sensor_id], AUTOMATIC);
@@ -172,8 +182,6 @@ void temp_init(unsigned int sampletime, unsigned int logduration)
 
 /* Speed up fan for 200ms before setting up a low value */
 
-int16_t _cached_power = 0;
-
 void fanSetCallback (__attribute__((unused)) tTimer *pTimer)
 {
   debug("+ fan power final set %d\r\n", _cached_power);
@@ -182,9 +190,10 @@ void fanSetCallback (__attribute__((unused)) tTimer *pTimer)
 
 void extruder_fan_set(int16_t power)
 {
-  debug("+ Setting fan power %d\r\n", power);
-  if ((power > 0) && (power < 50)) {
-    _cached_power = power;
+  debug("+ Setting fan power %d\r\n", power); 
+  
+  _cached_power = power;
+  if ((power > 0) && (power < 50)) {    
     temp_set(EXTRUDER_0_FAN, 100); 	
     StartSlowTimer (&fanTimer, 2000, fanSetCallback);  
 	debug("+ fan power %d hooked\r\n", power);
@@ -192,6 +201,9 @@ void extruder_fan_set(int16_t power)
     temp_set(EXTRUDER_0_FAN, (int) (power / 2.55)); 
 	debug("+ Done %d\r\n", (int) (power / 2.55));
   }
+  
+  debug("+ Updating PID function\r\n", power); 
+  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
 }
 
 void temp_set(uint8_t sensor_number,int16_t t)

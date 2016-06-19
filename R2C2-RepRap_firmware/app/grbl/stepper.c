@@ -78,6 +78,7 @@ uint32_t dac_scale;
 
 
 static block_t *current_block;  // A pointer to the block currently being traced
+block_t current_block_situation_at_endstop;
 
 // Variables used by The Stepper Driver Interrupt
 //static uint8_t out_bits;        // The next stepping-bits to be output
@@ -365,6 +366,8 @@ void st_interrupt (void)
   
   if(busy){ return; } // The busy-flag is used to avoid reentering this interrupt
   
+  busy = true;
+  
   // Set the direction pins a cuple of nanoseconds before we step the steppers
   //STEPPING_PORT = (STEPPING_PORT & ~DIRECTION_MASK) | (out_bits & DIRECTION_MASK);
 //  set_direction_pins (out_bits);
@@ -380,7 +383,7 @@ void st_interrupt (void)
   //TODO
   //TCNT2 = -(((settings.pulse_microseconds-2)*TICKS_PER_MICROSECOND)/8);
 
-  busy = true;
+  
   sei(); // Re enable interrupts (normally disabled while inside an interrupt handler)
          // ((We re-enable interrupts in order for SIG_OVERFLOW2 to be able to be triggered 
          // at exactly the right time even if we occasionally spend a lot of time inside this handler.))
@@ -447,6 +450,7 @@ void st_interrupt (void)
              (current_block->steps_z && hit_home_stop_z (direction_bits & (1<<Z_DIRECTION_BIT)) )
            )
         {
+		  current_block_situation_at_endstop = *current_block;		  
           step_events_completed = current_block->step_event_count;
           step_bits_xyz = step_bits_e = 0;
         }
@@ -540,6 +544,7 @@ void st_interrupt (void)
 	{
       step_bits_xyz = step_bits_e = 0;
 	  extruder_fan_set(current_block->fan_power);
+	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
       current_block = NULL;	  
       plan_discard_current_block();
 	}

@@ -91,7 +91,7 @@ typedef struct {
 
 
 extern tTarget startpoint;
-
+extern block_t current_block_situation_at_endstop;
       
 // Initialize the motion plan subsystem      
 void plan_init();

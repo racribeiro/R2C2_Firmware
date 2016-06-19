@@ -113,6 +113,14 @@ struct configuration
   double min_extruder_1;
   double max_extruder_1;
   
+  // PID Extruder FAN ON
+  double p_factor_extruder_fan_1;
+  double i_factor_extruder_fan_1;
+  double d_factor_extruder_fan_1;
+  
+  double min_extruder_fan_1;
+  double max_extruder_fan_1;
+  
   // HEATED BED Extruder
   double p_factor_heated_bed_0;
   double i_factor_heated_bed_0;

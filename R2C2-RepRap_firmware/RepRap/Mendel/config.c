@@ -135,6 +135,13 @@ tConfigItem config_lookup [] =
 		{ "min_extruder_1", &config.min_extruder_1, TYPE_DOUBLE, {.val_d=15}},
 		{ "max_extruder_1", &config.max_extruder_1, TYPE_DOUBLE, {.val_d=35}},
 		
+		{ "p_factor_extruder_fan_1", &config.p_factor_extruder_fan_1, TYPE_DOUBLE, {.val_d=4.3}},		
+		{ "i_factor_extruder_fan_1", &config.i_factor_extruder_fan_1, TYPE_DOUBLE, {.val_d=0.2}},
+		{ "d_factor_extruder_fan_1", &config.d_factor_extruder_fan_1, TYPE_DOUBLE, {.val_d=0.1}},
+		
+		{ "min_extruder_fan_1", &config.min_extruder_fan_1, TYPE_DOUBLE, {.val_d=15}},
+		{ "max_extruder_fan_1", &config.max_extruder_fan_1, TYPE_DOUBLE, {.val_d=35}},
+		
 		{ "p_factor_heated_bed_0", &config.p_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=4.3}},
 		{ "i_factor_heated_bed_0", &config.i_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.2}},
 		{ "d_factor_heated_bed_0", &config.d_factor_heated_bed_0, TYPE_DOUBLE, {.val_d=0.1}},
@@ -257,7 +264,13 @@ double atod (char *s)
   double result = 0.0;
   int num_places = 0;
   double frac = 0.0;
+  int signal = 1;
 
+  if (*s == '-') {
+    signal = -1;
+	s++;
+  }
+  
   while (*s && *s != '.')
     {
       result *= 10.0;
@@ -279,7 +292,7 @@ double atod (char *s)
         frac /= 10.0;
       result += frac;
     }
-  return result;
+  return result * signal;
 }
 
 void print_config (void)
@@ -384,17 +397,21 @@ void read_config (void)
                                 {
                                   int32_t *pVal = config_lookup[j].pValue;
                                   *pVal = atoi (pToken);
+								  
+								  // debug
+                                  //sersendf ("Found: %s = %d\r\n", config_lookup[j].name, *pVal);
                                   break;
                                 }
                               case TYPE_DOUBLE:
                                 {
                                   double *pVal = config_lookup[j].pValue;
                                   *pVal = atod(pToken);
+								  
+								  // debug
+								  //sersendf ("Found: %s = (%s) %g\r\n", config_lookup[j].name, pToken, *pVal);
                                   break;
                                 }
-                              }
-                              // debug
-                              //sersendf ("Found: %s = %d\r\n", config_lookup[j].name, *config_lookup[j].pValue);
+                              }                              
                             }
                           else
                             sersendf ("Missing value for %s\r\n", config_lookup[j].name);

@@ -81,11 +81,40 @@ double auto_reverse_factor = 640;
 tTarget targetStack[MAX_TARGET_STACK];
 uint8_t targetStackPos = 0;
 
+#define BED_LEVELING_POINTS 3
+tTarget bedLeveling[BED_LEVELING_POINTS];
+uint8_t bedLevelingDefined[BED_LEVELING_POINTS];
+uint8_t bedLevelingActive = false;
+double bedLevelingMatrix[3][3];
+
 #define __SAFE_TRAVEL__
+
+double calculate_teta()
+{
+  return 0;  
+}
+
+void set_IdentityBedLevelingMatrix()
+{
+  for(int i = 0; i < 3; i++) 
+	for(int j = 0; j < 3; j++)		    
+	  bedLevelingMatrix[i][j] = (i == j?1:0);  
+}
+
+void set_BedLevelingMatrix()
+{
+  double rX = calculate_teta();
+  double rY = calculate_teta();
+  double rZ = 0;
+  
+  set_IdentityBedLevelingMatrix();  
+}
 
 void debug_tTarget(tTarget *t)
 {
-  // sersendf(" - X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
+  sersendf(".");
+  sersendf(" - X:%g Y:%g Z:%g E:%g F:%g INV:%d REL:%d\r\n", t->x, t->y, t->z, t->e, t->feed_rate, t->invert_feed_rate);
+  sersendf(".\r\n");
 }
 
 void read_gcode_file(char *filename)
@@ -93,7 +122,7 @@ void read_gcode_file(char *filename)
   FRESULT res;    /* FatFs function common result code */
   char *pLine;
   
-  debug("- Opening %s\r\n", filename);
+  // debug("- Opening %s\r\n", filename);
   res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ);
   if (res == FR_OK)
     {
@@ -103,9 +132,9 @@ void read_gcode_file(char *filename)
       while (pLine)
       {
         line_buf.len = strlen(pLine);
-		debug("- Parsing [%s] %d\r\n", &line_buf.data, line_buf.len);
+		// debug("- Parsing [%s] %d\r\n", &line_buf.data, line_buf.len);
         gcode_parse_line (&line_buf);
-		debug("- executed [%s]\r\n");
+		// debug("- executed [%s]\r\n");
         pLine = f_gets(line_buf.data, sizeof(line_buf.data), &file);
       }
       
@@ -140,7 +169,7 @@ static void enqueue_moved (tTarget *pTarget)
 #ifdef __SAFE_TRAVEL__
   if (pTarget->x > config.printing_vol_x || pTarget->y > config.printing_vol_y ||
       pTarget->x < 0 || pTarget->y < 0) {
-      sersendf ("- Reached limits, not traveling to: ");	  
+      debug ("- Reached limits, not traveling to: ");	  
 	  debug_tTarget(pTarget);
   } else {
     plan_buffer_action (&request);
@@ -171,6 +200,7 @@ static void enqueue_fan (int speed)
   request.ActionType = AT_FAN_SET;
   request.wait_param = speed;
   plan_buffer_action (&request);
+  
 }
 
 static void enqueue_wait (void)
@@ -324,6 +354,47 @@ static void zero_z(void)
   new_pos.z = config.home_pos_z;
 
   plan_set_current_position (&new_pos);
+}
+
+double probe_z()
+{
+  int dir;
+  int max_travel;
+  double z_error;
+
+  if (config.home_direction_z < 0)
+  {
+    dir = -1;
+  }
+  else
+  {
+    dir = 1;
+  }
+  max_travel = max (300, config.printing_vol_z);
+
+  tTarget original_pos = startpoint;
+  
+  // move to endstop
+  SpecialMoveZ(startpoint.z + dir * max_travel, config.homing_feedrate_z);  
+  synch_queue();
+
+  z_error = current_block_situation_at_endstop.step_event_count - current_block_situation_at_endstop.steps_z;
+  sersendf(" z_error 1 : %g \r\n", z_error);
+  
+  // move forward a bit
+  SpecialMoveZ(startpoint.z - dir * 1, config.search_feedrate_z);
+  synch_queue();
+
+  // move back in to endstop slowly
+  SpecialMoveZ(startpoint.z + dir * 6, config.search_feedrate_z);
+  synch_queue();
+
+  z_error = current_block_situation_at_endstop.step_event_count - current_block_situation_at_endstop.steps_z + z_error;
+  sersendf(" z_error 2 : %g \r\n", z_error);
+  
+  plan_set_current_position (&original_pos);
+    
+  return z_error;  
 }
 
 static void zero_e(void)
@@ -509,7 +580,7 @@ void sd_seek(FIL *pFile, unsigned pos)
 
 void append_arc_movements(tTarget *next_targetd, double center_offset_x, double center_offset_y, double radius, bool is_clockwise)
 {
-    debug_tTarget(next_targetd);
+    //debug_tTarget(next_targetd);
 	
     // Scary math
     double center_x = startpoint.x + center_offset_x;
@@ -615,7 +686,7 @@ void append_arc_movements(tTarget *next_targetd, double center_offset_x, double 
         arc_target.z += linear_per_segment;		
 		arc_target.e += e_per_segment;
 
-        debug_tTarget(&arc_target);
+        //debug_tTarget(&arc_target);
 		
         // Append this segment to the queue
         enqueue_moved(&arc_target);
@@ -689,7 +760,7 @@ void append_circle_movements(tTarget *next_targetd, double radius, double teta, 
 	
     teta += segment_arc;
 	
-	debug_tTarget(next_targetd);
+	//debug_tTarget(next_targetd);
 	
 	if (next_target.option_relative) {
 	  // sersendf(" - rel - %g\r\n", tt_targetd.e / segments);
@@ -1147,16 +1218,16 @@ eParseResult process_gcode_command()
       // M106- fan on
       case 106:	    
 	    
-	    if (next_target.seen_S) {
-		  if (enqueue_fan_mode) {
-		    enqueue_fan(next_target.S);			
+	    if (next_target.seen_S) { // Parameter S? // Yes, use parameter
+		  if (enqueue_fan_mode) { 
+		    enqueue_fan(next_target.S); // here
 		  } else {
 		    synch_queue();
-  	        extruder_fan_set(next_target.S);	    
+  	        extruder_fan_set(next_target.S); // and here    
 		  }
-		} else {
+		} else { // no! // set to maximum
 	      if (enqueue_fan_mode) {	        
-		    enqueue_fan(255);
+		    enqueue_fan(255); 
 		  } else {
             synch_queue();
 		    extruder_fan_set(255);			
@@ -1270,20 +1341,41 @@ eParseResult process_gcode_command()
 
       // M130- heater P factor
       case 130:
-      if (next_target.seen_S)
-        config.p_factor_extruder_1 = next_target.S / 1000.0;
-      if (next_target.seen_X)
-        config.p_factor_extruder_1 = next_target.target.x;
-      if (next_target.seen_Y)
-        config.i_factor_extruder_1 = next_target.target.y;
-      if (next_target.seen_Z)
-        config.d_factor_extruder_1 = next_target.target.z;	
-      if (next_target.seen_I)
-        config.max_extruder_1 = next_target.I;
-      if (next_target.seen_J)
-        config.min_extruder_1 = next_target.J;			
-				
-	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+	  
+	  if ( (!next_target.seen_P) || (next_target.P == 0) ) { // if no P, off mode pid definition. if P = 0, off mode pid definition
+		
+		if (next_target.seen_S)
+			config.p_factor_extruder_1 = next_target.S / 1000.0;
+		if (next_target.seen_X)
+			config.p_factor_extruder_1 = next_target.target.x;
+		if (next_target.seen_Y)
+			config.i_factor_extruder_1 = next_target.target.y;
+		if (next_target.seen_Z)
+			config.d_factor_extruder_1 = next_target.target.z;	
+		if (next_target.seen_I)
+			config.max_extruder_1 = next_target.I;
+		if (next_target.seen_J)
+			config.min_extruder_1 = next_target.J;			
+			
+        temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+		
+	  } else {
+	  
+	    if (next_target.seen_S)
+			config.p_factor_extruder_fan_1 = next_target.S / 1000.0;
+		if (next_target.seen_X)
+			config.p_factor_extruder_fan_1 = next_target.target.x;
+		if (next_target.seen_Y)
+			config.i_factor_extruder_fan_1 = next_target.target.y;
+		if (next_target.seen_Z)
+			config.d_factor_extruder_fan_1 = next_target.target.z;	
+		if (next_target.seen_I)
+			config.max_extruder_fan_1 = next_target.I;
+		if (next_target.seen_J)
+			config.min_extruder_fan_1 = next_target.J;			
+			
+        temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+	  }
 		
       break;
       // M131- heater I factor
@@ -1305,7 +1397,8 @@ eParseResult process_gcode_command()
 
       // M133- heated bed P=X, I=Y, D=Z, MAX=I, MIN=J
       case 133:
-        if (next_target.seen_X)
+	  
+	    if (next_target.seen_X)
           config.p_factor_heated_bed_0 = next_target.target.x;
         if (next_target.seen_Y)
           config.i_factor_heated_bed_0 = next_target.target.y;
@@ -1664,19 +1757,19 @@ eParseResult process_gcode_command()
       {
         if (next_target.seen_X)
         {
-          config.home_pos_x -= next_target.target.x;
+          config.home_pos_x = next_target.target.x;
           axisSelected = 1;
         }//no need for else
 
         if (next_target.seen_Y)
         {
-          config.home_pos_y -= next_target.target.y;
+          config.home_pos_y = next_target.target.y;
           axisSelected = 1;
         }//no need for else
 
         if (next_target.seen_Z)
         {
-          config.home_pos_z -= next_target.target.z;
+          config.home_pos_z = next_target.target.z;
           axisSelected = 1;
         }//no need for else
 
@@ -1760,6 +1853,84 @@ eParseResult process_gcode_command()
       case 731:
 	    enqueue_fan_mode = true;
 	  break;
+	  
+	  // BedLeveling 74x commands
+	  
+	  // 
+	  case 740: // Reset bed leveling points
+	    set_IdentityBedLevelingMatrix();
+	    bedLevelingDefined[0] = false;
+		bedLevelingDefined[1] = false;
+		bedLevelingDefined[2] = false;
+		bedLevelingActive = false;
+	  break;
+
+      case 741: // Sets Point S1, S2, S3
+	    if (bedLevelingActive) {
+		  sersendf("Can't set points while bedlevel is activated!\r\n");
+		} else
+	    if (next_target.seen_S) {
+		  if ((next_target.S >= 1) && (next_target.S <= BED_LEVELING_POINTS)) {
+		    int this_point = next_target.S - 1;
+		    bedLevelingDefined[this_point] = true;			
+		    // memcpy(&bedLeveling[this_point], &startpoint, sizeof(startpoint));
+            bedLeveling[this_point] = startpoint;
+			
+			if (this_point == 0) {
+			  zero_z();
+			  bedLeveling[this_point].z = 0;
+			} else {
+			  sersendf("Probing...\r\n");
+			  bedLeveling[this_point].z = probe_z();
+			  sersendf("Done!\r\n");
+			}
+		  }
+		}
+	  break;
+	  
+	  case 742: // (re)activate BedLeveling
+	    if (bedLevelingDefined[0] && bedLevelingDefined[1] && bedLevelingDefined[2]) {
+		  sersendf("Bedleveling enabled!\r\n");
+		  bedLevelingActive = true;
+		  // Calculate and set transformation matrix 
+		  set_IdentityBedLevelingMatrix();
+		  sersendf("Bedleveling activated!\r\n");
+		}
+      break;
+	  
+	  case 743: // Deactivate BedLeveling
+	    bedLevelingActive = false;
+		// Update transformation matrix to identity matrix
+		set_IdentityBedLevelingMatrix();		
+		sersendf("Bedleveling deactivated!");		
+      break;
+
+	  case 749: // Prints debug information
+	    		
+		if (bedLevelingActive) {
+		  sersendf("Bedleveling active!\r\n");		
+		} else {
+		  sersendf("Bedleveling not active!\r\n");		
+		}
+		
+		for(int i = 0; i < BED_LEVELING_POINTS; i++) {
+		  if (bedLevelingDefined[i]) {
+		    sersendf("P%d : X=%g Y=%g Z=%g\r\n", i, bedLeveling[i].x, bedLeveling[i].y, bedLeveling[i].z);		  
+	      } else {
+		    sersendf("P%d : not defined!\r\n", i);
+		  }		  
+		}
+		
+		for(int i = 0; i < 3; i++) 
+		  for(int j = 0; j < 3; j++) {{		    
+		    sersendf(" %g ", bedLevelingMatrix[i][j]);
+		  }		  
+		  sersendf("\r\n");
+		}
+		
+      break;
+	  
+	  
 				
       // unknown mcode: spit an error
       default:

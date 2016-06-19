@@ -31,6 +31,7 @@
 
 #include "r2c2.h"
 
+#include "ptransform.h"
 #include "planner.h"
 //#include "nuts_bolts.h"
 #include "stepper.h"
@@ -414,9 +415,17 @@ void plan_buffer_line (tActionRequest *pAction)
   double speed_factor;
   static uint32_t direction_bits_old = 0;
   
-  x = pAction->target.x;
-  y = pAction->target.y;
-  z = pAction->target.z;
+  
+  if (bedLevelingActive) {
+    // TRANSFROMATION!!!!
+	ptransform(&pAction->target, &x, &y, &z);	
+  } else {
+    // NO TRANSFORMATION!!!
+    x = pAction->target.x;
+    y = pAction->target.y;
+    z = pAction->target.z;
+  }
+  
   feed_rate = pAction->target.feed_rate;
   // invert_feed_rate = pAction->target.invert_feed_rate;
   
