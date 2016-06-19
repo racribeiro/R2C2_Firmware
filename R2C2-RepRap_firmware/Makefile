@@ -1,4 +1,3 @@
-
 # Hey Emacs, this is a -*- makefile -*-
 #
 # WinARM template makefile 
@@ -195,6 +194,7 @@ SRC = \
 	$(APPLIBDIR)/R2C2/rtttl.c \
 	$(APPLIBDIR)/R2C2/uart.c \
 	$(APPLIBDIR)/R2C2/pid2.c \
+	$(APPLIBDIR)/R2C2/ptransform.c \
 	$(APPSRC) \
 	main.c
 	
@@ -713,4 +713,4 @@ clean_list :
 .PHONY : all begin end sizebefore sizeafter gccversion build elf hex bin lss sym clean clean_list program createdirs
 
 install : FLASH_RUN/project.bin
-	cp /cygdrive/e/r2c2/R2C2_Firmware/R2C2-RepRap_firmware/FLASH_RUN/project.bin /cygdrive/g/firmware.bin
+	cp /cygdrive/e/r2c2/R2C2_Firmware/R2C2-RepRap_firmware/FLASH_RUN/project.bin /cygdrive/f/firmware.bin
