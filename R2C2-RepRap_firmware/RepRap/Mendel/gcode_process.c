@@ -1357,8 +1357,6 @@ eParseResult process_gcode_command()
 		if (next_target.seen_J)
 			config.min_extruder_1 = next_target.J;			
 			
-        temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
-		
 	  } else {
 	  
 	    if (next_target.seen_S)
@@ -1373,10 +1371,11 @@ eParseResult process_gcode_command()
 			config.max_extruder_fan_1 = next_target.I;
 		if (next_target.seen_J)
 			config.min_extruder_fan_1 = next_target.J;			
-			
-        temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+
 	  }
 		
+	  temp_init_sensor(EXTRUDER_0, config.temp_sample_rate, config.temp_buffer_duration);
+	  
       break;
       // M131- heater I factor
       case 131:
