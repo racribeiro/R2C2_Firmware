@@ -358,7 +358,13 @@ void gcode_parse_char(uint8_t c)
         // this is a bit hacky since string parameters don't fit in general G code syntax
         // NB: filename MUST start with a letter and MUST NOT contain spaces
         // letters will also be converted to uppercase
-        if ((next_target.M == 23) || (next_target.M == 28) || (next_target.M == 30) || (next_target.M == 302) || (next_target.M == 710))
+        if ((next_target.M == 23) ||   // Open file
+		    (next_target.M == 28) ||   // Write File
+			(next_target.M == 30) ||   // Delete file
+			(next_target.M == 302) ||  // Play RTTTL music
+			(next_target.M == 710) ||  // String Debug on UART
+			(next_target.M == 117)     // RepetierHost - display information (equivalent to M710)
+		)
         {
           next_target.getting_string = 1;
         }
@@ -489,7 +495,10 @@ void gcode_parse_char(uint8_t c)
 
   if (next_target.getting_string)
   {
-    if ((c == 10) || (c == 13) || ( c == ' ')  || ( c == '*'))
+    if ((c == 10) || (c == 13) // end of line
+	   // || ( c == ' ') // allow ' ' to be on string
+       || ( c == '*') // begin of checksum
+	)
     {
       next_target.getting_string = 0;
     }

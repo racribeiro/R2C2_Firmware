@@ -1311,7 +1311,7 @@ eParseResult process_gcode_command()
 
       // M115- report firmware version
       case 115:
-		sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:https://github.com/racribeiro/R2C2_Firmware PROTOCOL_VERSION:1.0 MACHINE_TYPE:Mendel\r\n");
+		sersendf("FIRMWARE_NAME:Teacup_R2C2 FIRMWARE_URL:https://github.com/racribeiro/R2C2_Firmware PROTOCOL_VERSION:1.1 MACHINE_TYPE:Mendel\r\n");
       break;
 
       // M116 - Wait for all temperatures and other slowly-changing variables to arrive at their set values.
@@ -1321,6 +1321,11 @@ eParseResult process_gcode_command()
         enqueue_wait();
       }
       break;
+
+      // M117 - Sends out the string to the serial line
+      case 117:
+	    uart_sendf("%s\r\n", next_target.filename);
+	  break;
 
       case 119:
       // M119 - Get Endstop Status
